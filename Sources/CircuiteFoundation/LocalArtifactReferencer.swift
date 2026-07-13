@@ -3,6 +3,12 @@ import Foundation
 public struct LocalArtifactReferencer: ArtifactReferencing {
   private let digester: any ContentDigesting
 
+  private struct FileSnapshot: Equatable {
+    let byteCount: Int64
+    let modificationDate: Date?
+    let fileNumber: NSNumber?
+  }
+
   public init(digester: any ContentDigesting = SHA256ContentDigester()) {
     self.digester = digester
   }
@@ -38,11 +44,35 @@ public struct LocalArtifactReferencer: ArtifactReferencing {
       throw ArtifactReferenceError.byteCountOverflow(url)
     }
 
+    let initialSnapshot = FileSnapshot(
+      byteCount: size.int64Value,
+      modificationDate: attributes[.modificationDate] as? Date,
+      fileNumber: attributes[.systemFileNumber] as? NSNumber
+    )
     let digest = try digester.digest(fileAt: url, using: .sha256)
+    let finalAttributes: [FileAttributeKey: Any]
+    do {
+      finalAttributes = try fileManager.attributesOfItem(atPath: url.path)
+    } catch {
+      throw ArtifactReferenceError.metadataUnavailable(url, reason: error.localizedDescription)
+    }
+    guard let finalSize = finalAttributes[.size] as? NSNumber,
+          finalSize.int64Value >= 0 else {
+      throw ArtifactReferenceError.metadataUnavailable(url, reason: "Missing final file size attribute.")
+    }
+    let finalSnapshot = FileSnapshot(
+      byteCount: finalSize.int64Value,
+      modificationDate: finalAttributes[.modificationDate] as? Date,
+      fileNumber: finalAttributes[.systemFileNumber] as? NSNumber
+    )
+    guard initialSnapshot == finalSnapshot else {
+      throw ArtifactReferenceError.changedDuringReference(url)
+    }
+
     return ArtifactReference(
       locator: locator,
       digest: digest,
-      byteCount: size.uint64Value,
+      byteCount: UInt64(finalSnapshot.byteCount),
       producer: producer
     )
   }

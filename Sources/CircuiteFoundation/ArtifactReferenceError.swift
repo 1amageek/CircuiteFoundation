@@ -5,6 +5,7 @@ public enum ArtifactReferenceError: Error, Sendable, Equatable, LocalizedError {
   case notRegularFile(URL)
   case metadataUnavailable(URL, reason: String)
   case byteCountOverflow(URL)
+  case changedDuringReference(URL)
 
   public var errorDescription: String? {
     switch self {
@@ -16,6 +17,8 @@ public enum ArtifactReferenceError: Error, Sendable, Equatable, LocalizedError {
       "Unable to inspect artifact metadata at \(url.path): \(reason)"
     case .byteCountOverflow(let url):
       "Artifact byte count cannot be represented as UInt64: \(url.path)"
+    case .changedDuringReference(let url):
+      "Artifact changed while it was being referenced: \(url.path)"
     }
   }
 }

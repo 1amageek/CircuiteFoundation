@@ -54,6 +54,10 @@ Artifact identity is separated into two phases:
 | Before materialization | `ArtifactLocator` | A typed intended location, role, and format |
 | After materialization | `ArtifactReference` | A digest and byte count were captured for an immutable file |
 
+`ArtifactID` is an opaque stable token. UUID-shaped values remain valid for
+compatibility, but projections preserve producer-assigned identifiers such as
+domain or run artifact names instead of deriving a new UUID.
+
 `LocalArtifactVerifier` reports missing files and mismatches as structured integrity issues rather than reducing
 them to log strings. Open artifact, diagnostic, producer, and design-object tokens reject empty, padded, and
 control-character values at construction and decoding boundaries.

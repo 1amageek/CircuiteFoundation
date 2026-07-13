@@ -24,6 +24,15 @@ struct ArtifactTests {
   }
 
   @Test
+  func absoluteLocationDecoderReportsInvalidFileURL() {
+    let data = Data(#"{"storage":"absoluteFileURL","value":"http://["}"#.utf8)
+
+    #expect(throws: ArtifactLocationError.invalidFileURL("http://[")) {
+      _ = try JSONDecoder().decode(ArtifactLocation.self, from: data)
+    }
+  }
+
+  @Test
   func relativeLocationRejectsSymlinkEscape() throws {
     try withTemporaryDirectory { temporaryDirectory in
       let workspace = temporaryDirectory.appendingPathComponent("workspace", isDirectory: true)
@@ -75,6 +84,21 @@ struct ArtifactTests {
   }
 
   @Test
+  func referencerRejectsFilesThatChangeDuringDigesting() throws {
+    try withTemporaryDirectory { workspace in
+      let fileURL = workspace.appendingPathComponent("changing.json")
+      try Data("before".utf8).write(to: fileURL)
+      let location = try ArtifactLocation(workspaceRelativePath: "changing.json")
+      let locator = ArtifactLocator(location: location, kind: .report, format: .json)
+      let referencer = LocalArtifactReferencer(digester: MutatingDigester(fileURL: fileURL))
+
+      #expect(throws: ArtifactReferenceError.changedDuringReference(fileURL)) {
+        try referencer.reference(locator, relativeTo: workspace)
+      }
+    }
+  }
+
+  @Test
   func artifactReferenceRoundTripsThroughJSON() throws {
     let location = try ArtifactLocation(workspaceRelativePath: "pex/extracted.spef")
     let digest = try ContentDigest(
@@ -108,12 +132,31 @@ struct ArtifactTests {
 
     let reference = try JSONDecoder().decode(ArtifactReference.self, from: fixtureData)
 
-    #expect(reference.id.rawValue.uuidString == "AF43165C-EC65-449D-868E-D26EB9C25A3F")
+    #expect(reference.id.rawValue == "AF43165C-EC65-449D-868E-D26EB9C25A3F")
     #expect(reference.locator.location.value == "pex/extracted.spef")
     #expect(reference.locator.kind == .parasitics)
     #expect(reference.locator.format == .spef)
     #expect(reference.byteCount == 128)
     #expect(reference.producer == nil)
+  }
+
+  @Test
+  func artifactReferenceDerivesStableIdentityWhenProducerIDIsAbsent() throws {
+    let locator = ArtifactLocator(
+      location: try ArtifactLocation(workspaceRelativePath: "reports/timing.json"),
+      kind: .report,
+      format: .json
+    )
+    let digest = try ContentDigest(
+      algorithm: .sha256,
+      hexadecimalValue: String(repeating: "a", count: 64)
+    )
+
+    let first = ArtifactReference(locator: locator, digest: digest, byteCount: 42)
+    let second = ArtifactReference(locator: locator, digest: digest, byteCount: 42)
+
+    #expect(first.id == second.id)
+    #expect(first.id.rawValue.hasPrefix("derived-"))
   }
 
   @Test
@@ -126,11 +169,38 @@ struct ArtifactTests {
   }
 
   @Test
+  func artifactIDPreservesDomainOpaqueIdentity() throws {
+    let identifier = try ArtifactID(rawValue: "dft-release-result")
+    let data = try JSONEncoder().encode(identifier)
+    let decoded = try JSONDecoder().decode(ArtifactID.self, from: data)
+
+    #expect(decoded.rawValue == "dft-release-result")
+    #expect(decoded.id == "dft-release-result")
+  }
+
+  @Test
+  func artifactIDRejectsInvalidTokens() {
+    #expect(throws: TokenError.self) {
+      try ArtifactID(rawValue: " dft-result")
+    }
+  }
+
+  @Test
   func digestRejectsIncompleteHexadecimalByte() {
     #expect(throws: ContentDigestError.self) {
       try ContentDigest(
         algorithm: try ContentDigestAlgorithm(rawValue: "custom"),
         hexadecimalValue: "abc"
+      )
+    }
+  }
+
+  @Test
+  func digestRejectsUnicodeHexadecimalCharacters() {
+    #expect(throws: ContentDigestError.self) {
+      try ContentDigest(
+        algorithm: .sha256,
+        hexadecimalValue: String(repeating: "Ａ", count: 64)
       )
     }
   }
@@ -209,6 +279,19 @@ struct ArtifactTests {
 
       #expect(integrity.issues.map(\.code) == [.unsupportedDigestAlgorithm])
       #expect(integrity.issues.first?.digestAlgorithm == algorithm)
+    }
+  }
+
+  private struct MutatingDigester: ContentDigesting {
+    let fileURL: URL
+
+    func digest(data: Data, using algorithm: ContentDigestAlgorithm) throws -> ContentDigest {
+      try SHA256ContentDigester().digest(data: data, using: algorithm)
+    }
+
+    func digest(fileAt url: URL, using algorithm: ContentDigestAlgorithm) throws -> ContentDigest {
+      try Data("after".utf8).write(to: fileURL)
+      return try SHA256ContentDigester().digest(data: Data("before".utf8), using: algorithm)
     }
   }
 }

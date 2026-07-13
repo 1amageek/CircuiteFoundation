@@ -15,6 +15,7 @@ public struct HierarchyPath: Sendable, Hashable, Codable, CustomStringConvertibl
         CharacterSet.controlCharacters.contains($0)
       }
       guard !component.isEmpty,
+        component.trimmingCharacters(in: .whitespacesAndNewlines) == component,
         component != ".",
         component != "..",
         !component.contains("/"),

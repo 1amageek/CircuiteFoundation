@@ -23,6 +23,9 @@ struct DesignAddressingTests {
     #expect(throws: HierarchyPathError.self) {
       try HierarchyPath("top//alu")
     }
+    #expect(throws: HierarchyPathError.self) {
+      try HierarchyPath(components: ["top", " cpu"])
+    }
   }
 
   @Test

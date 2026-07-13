@@ -30,7 +30,7 @@ public struct ArtifactLocation: Sendable, Hashable, Codable {
     switch storage {
     case .absoluteFileURL:
       guard let url = URL(string: value), url.isFileURL else {
-        throw ArtifactLocationError.invalidWorkspaceRelativePath(value)
+        throw ArtifactLocationError.invalidFileURL(value)
       }
       return url.standardizedFileURL
     case .workspaceRelative:
@@ -69,11 +69,7 @@ public struct ArtifactLocation: Sendable, Hashable, Codable {
       try self.init(workspaceRelativePath: value)
     case .absoluteFileURL:
       guard let url = URL(string: value) else {
-        throw DecodingError.dataCorruptedError(
-          forKey: .value,
-          in: container,
-          debugDescription: "Artifact location contains an invalid URL."
-        )
+        throw ArtifactLocationError.invalidFileURL(value)
       }
       try self.init(fileURL: url)
     }

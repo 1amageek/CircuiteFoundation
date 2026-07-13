@@ -2,6 +2,7 @@ import Foundation
 
 public enum ArtifactLocationError: Error, Sendable, Equatable, LocalizedError {
   case invalidWorkspaceRelativePath(String)
+  case invalidFileURL(String)
   case nonFileURL(URL)
   case nonAbsoluteFileURL(URL)
   case missingWorkspaceRoot
@@ -12,6 +13,8 @@ public enum ArtifactLocationError: Error, Sendable, Equatable, LocalizedError {
     switch self {
     case .invalidWorkspaceRelativePath(let path):
       "Invalid workspace-relative artifact path: \(path)"
+    case .invalidFileURL(let value):
+      "Invalid artifact file URL: \(value)"
     case .nonFileURL(let url):
       "Artifact URL is not a file URL: \(url.absoluteString)"
     case .nonAbsoluteFileURL(let url):
