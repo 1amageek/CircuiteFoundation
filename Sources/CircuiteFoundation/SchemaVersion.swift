@@ -4,6 +4,7 @@ public struct SchemaVersion: Sendable, Hashable, Codable, Comparable, CustomStri
   public let patch: UInt16
 
   public static let v1 = Self(major: 1, minor: 0, patch: 0)
+  public static let v2 = Self(major: 2, minor: 0, patch: 0)
 
   public var description: String {
     "\(major).\(minor).\(patch)"

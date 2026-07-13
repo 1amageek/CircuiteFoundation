@@ -4,6 +4,8 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
   public let producer: ProducerIdentity
   public let supportingTools: [ProducerIdentity]
   public let inputs: [ArtifactReference]
+  public let invocation: ExecutionInvocation?
+  public let environment: ExecutionEnvironmentFingerprint?
   public let configurationDigest: ContentDigest?
   public let designRevision: ContentDigest?
   public let randomSeed: UInt64?
@@ -14,6 +16,8 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
     producer: ProducerIdentity,
     supportingTools: [ProducerIdentity] = [],
     inputs: [ArtifactReference] = [],
+    invocation: ExecutionInvocation? = nil,
+    environment: ExecutionEnvironmentFingerprint? = nil,
     configurationDigest: ContentDigest? = nil,
     designRevision: ContentDigest? = nil,
     randomSeed: UInt64? = nil,
@@ -43,6 +47,8 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
     self.producer = producer
     self.supportingTools = supportingTools
     self.inputs = inputs
+    self.invocation = invocation
+    self.environment = environment
     self.configurationDigest = configurationDigest
     self.designRevision = designRevision
     self.randomSeed = randomSeed
@@ -54,8 +60,11 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     try self.init(
       producer: container.decode(ProducerIdentity.self, forKey: .producer),
-      supportingTools: container.decode([ProducerIdentity].self, forKey: .supportingTools),
-      inputs: container.decode([ArtifactReference].self, forKey: .inputs),
+      supportingTools: container.decodeIfPresent([ProducerIdentity].self, forKey: .supportingTools) ?? [],
+      inputs: container.decodeIfPresent([ArtifactReference].self, forKey: .inputs) ?? [],
+      invocation: container.decodeIfPresent(ExecutionInvocation.self, forKey: .invocation),
+      environment: container.decodeIfPresent(
+        ExecutionEnvironmentFingerprint.self, forKey: .environment),
       configurationDigest: container.decodeIfPresent(
         ContentDigest.self, forKey: .configurationDigest),
       designRevision: container.decodeIfPresent(ContentDigest.self, forKey: .designRevision),
@@ -69,6 +78,8 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
     case producer
     case supportingTools
     case inputs
+    case invocation
+    case environment
     case configurationDigest
     case designRevision
     case randomSeed

@@ -8,7 +8,7 @@ public struct EvidenceManifest: Sendable, Hashable, Codable, Identifiable {
 
   public init(
     id: UUID = UUID(),
-    schemaVersion: SchemaVersion = .v1,
+    schemaVersion: SchemaVersion = .v2,
     provenance: ExecutionProvenance,
     artifacts: [ArtifactReference]
   ) {
@@ -16,5 +16,20 @@ public struct EvidenceManifest: Sendable, Hashable, Codable, Identifiable {
     self.schemaVersion = schemaVersion
     self.provenance = provenance
     self.artifacts = artifacts
+  }
+
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+    self.schemaVersion = try container.decodeIfPresent(SchemaVersion.self, forKey: .schemaVersion) ?? .v1
+    self.provenance = try container.decode(ExecutionProvenance.self, forKey: .provenance)
+    self.artifacts = try container.decodeIfPresent([ArtifactReference].self, forKey: .artifacts) ?? []
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case id
+    case schemaVersion
+    case provenance
+    case artifacts
   }
 }

@@ -24,4 +24,5 @@ public struct DesignDiagnostic: Sendable, Hashable, Codable {
     self.artifactID = artifactID
     self.suggestedActions = suggestedActions
   }
+
 }

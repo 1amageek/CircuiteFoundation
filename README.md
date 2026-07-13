@@ -23,8 +23,8 @@ flowchart TD
 | Area | Public surface |
 |---|---|
 | Engine execution | Minimal `Engine` protocol |
-| Artifact trust | Location, identity, format, digest, reference, verification |
-| Evidence | Execution provenance and evidence manifest |
+| Artifact trust | Location, role, identity, format, digest, reference, verification |
+| Evidence | Invocation, environment fingerprint, execution provenance, and evidence manifest |
 | Diagnostics | Stable severity, code, subject, and suggested action |
 | Design addressing | Hierarchical design-object references |
 | Physical representation | Database-unit scale and electrical quantities absent from Foundation |
@@ -32,6 +32,11 @@ flowchart TD
 
 Domain results remain in their owning packages. A timing engine owns timing paths, a DRC engine owns violations,
 and a PDK package owns process rules. Xcircuite owns composition and orchestration.
+
+Artifact roles are open validated tokens. In-process and external-process
+invocations share one typed provenance model without persisting raw environment
+variables or secrets. New evidence manifests use schema version 2; legacy
+Foundation manifests remain decodable.
 
 ## Usage
 

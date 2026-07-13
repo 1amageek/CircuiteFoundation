@@ -59,7 +59,7 @@ struct ArtifactTests {
       let reportURL = reports.appendingPathComponent("timing.json")
       try Data("accepted".utf8).write(to: reportURL)
       let location = try ArtifactLocation(workspaceRelativePath: "reports/timing.json")
-      let locator = ArtifactLocator(location: location, kind: .report, format: .json)
+      let locator = ArtifactLocator(location: location, role: .output, kind: .report, format: .json)
       let reference = try LocalArtifactReferencer().reference(
         locator,
         relativeTo: workspace,
@@ -89,7 +89,7 @@ struct ArtifactTests {
       let fileURL = workspace.appendingPathComponent("changing.json")
       try Data("before".utf8).write(to: fileURL)
       let location = try ArtifactLocation(workspaceRelativePath: "changing.json")
-      let locator = ArtifactLocator(location: location, kind: .report, format: .json)
+      let locator = ArtifactLocator(location: location, role: .output, kind: .report, format: .json)
       let referencer = LocalArtifactReferencer(digester: MutatingDigester(fileURL: fileURL))
 
       #expect(throws: ArtifactReferenceError.changedDuringReference(fileURL)) {
@@ -108,7 +108,7 @@ struct ArtifactTests {
     let identifier = try #require(UUID(uuidString: "AF43165C-EC65-449D-868E-D26EB9C25A3F"))
     let reference = ArtifactReference(
       id: ArtifactID(rawValue: identifier),
-      locator: ArtifactLocator(location: location, kind: .parasitics, format: .spef),
+      locator: ArtifactLocator(location: location, role: .output, kind: .parasitics, format: .spef),
       digest: digest,
       byteCount: 128
     )
@@ -134,6 +134,7 @@ struct ArtifactTests {
 
     #expect(reference.id.rawValue == "AF43165C-EC65-449D-868E-D26EB9C25A3F")
     #expect(reference.locator.location.value == "pex/extracted.spef")
+    #expect(reference.locator.role == .legacyUnspecified)
     #expect(reference.locator.kind == .parasitics)
     #expect(reference.locator.format == .spef)
     #expect(reference.byteCount == 128)
@@ -144,6 +145,7 @@ struct ArtifactTests {
   func artifactReferenceDerivesStableIdentityWhenProducerIDIsAbsent() throws {
     let locator = ArtifactLocator(
       location: try ArtifactLocation(workspaceRelativePath: "reports/timing.json"),
+      role: .output,
       kind: .report,
       format: .json
     )
@@ -223,7 +225,7 @@ struct ArtifactTests {
     try withTemporaryDirectory { workspace in
       let location = try ArtifactLocation(workspaceRelativePath: "reports/missing.json")
       let reference = ArtifactReference(
-        locator: ArtifactLocator(location: location, kind: .report, format: .json),
+        locator: ArtifactLocator(location: location, role: .output, kind: .report, format: .json),
         digest: try ContentDigest(
           algorithm: .sha256,
           hexadecimalValue: String(repeating: "0", count: 64)
@@ -245,7 +247,7 @@ struct ArtifactTests {
       let digest = try SHA256ContentDigester().digest(fileAt: fileURL, using: .sha256)
       let location = try ArtifactLocation(workspaceRelativePath: "layout.gds")
       let reference = ArtifactReference(
-        locator: ArtifactLocator(location: location, kind: .layout, format: .gdsii),
+        locator: ArtifactLocator(location: location, role: .output, kind: .layout, format: .gdsii),
         digest: digest,
         byteCount: 2
       )
@@ -268,6 +270,7 @@ struct ArtifactTests {
       let reference = ArtifactReference(
         locator: ArtifactLocator(
           location: location,
+          role: .output,
           kind: .evidence,
           format: try ArtifactFormat(rawValue: "binary")
         ),
