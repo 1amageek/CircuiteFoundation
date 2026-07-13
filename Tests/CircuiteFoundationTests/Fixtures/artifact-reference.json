@@ -1,0 +1,17 @@
+{
+  "id": "AF43165C-EC65-449D-868E-D26EB9C25A3F",
+  "locator": {
+    "location": {
+      "storage": "workspaceRelative",
+      "value": "pex/extracted.spef"
+    },
+    "kind": "parasitics",
+    "format": "spef"
+  },
+  "digest": {
+    "algorithm": "sha256",
+    "hexadecimalValue": "aaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaaa"
+  },
+  "byteCount": 128,
+  "producer": null
+}
