@@ -20,6 +20,20 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
     startedAt: Date,
     completedAt: Date
   ) throws {
+    let startInterval = startedAt.timeIntervalSinceReferenceDate
+    let completionInterval = completedAt.timeIntervalSinceReferenceDate
+    guard startInterval.isFinite else {
+      throw ExecutionProvenanceError.nonFiniteTimestamp(
+        kind: "Start",
+        value: startInterval
+      )
+    }
+    guard completionInterval.isFinite else {
+      throw ExecutionProvenanceError.nonFiniteTimestamp(
+        kind: "Completion",
+        value: completionInterval
+      )
+    }
     guard completedAt >= startedAt else {
       throw ExecutionProvenanceError.completionPrecedesStart(
         startedAt: startedAt,

@@ -55,7 +55,8 @@ Artifact identity is separated into two phases:
 | After materialization | `ArtifactReference` | A digest and byte count were captured for an immutable file |
 
 `LocalArtifactVerifier` reports missing files and mismatches as structured integrity issues rather than reducing
-them to log strings.
+them to log strings. Open artifact, diagnostic, producer, and design-object tokens reject empty, padded, and
+control-character values at construction and decoding boundaries.
 
 ## Units
 

@@ -27,13 +27,13 @@ struct DesignAddressingTests {
 
   @Test
   func diagnosticCarriesMachineReadableSubjectAndAction() throws {
-    let subject = DesignObjectReference(
+    let subject = try DesignObjectReference(
       kind: .net,
       identifier: "clock",
       hierarchy: try HierarchyPath("top/cpu")
     )
     let diagnostic = DesignDiagnostic(
-      code: "timing.hold-violation",
+      code: try DiagnosticCode(rawValue: "timing.hold-violation"),
       severity: .error,
       summary: "Hold constraint is not met.",
       subject: subject,
@@ -44,5 +44,12 @@ struct DesignAddressingTests {
 
     #expect(diagnostic.subject == subject)
     #expect(diagnostic.suggestedActions.first?.code == "inspect-min-delay")
+  }
+
+  @Test
+  func designObjectReferenceRequiresIdentifier() {
+    #expect(throws: TokenError.self) {
+      try DesignObjectReference(kind: .net, identifier: "")
+    }
   }
 }

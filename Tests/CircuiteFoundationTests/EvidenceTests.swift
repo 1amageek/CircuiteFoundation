@@ -11,7 +11,7 @@ struct EvidenceTests {
 
     #expect(throws: ExecutionProvenanceError.self) {
       try ExecutionProvenance(
-        producer: ProducerIdentity(
+        producer: try ProducerIdentity(
           kind: .engine,
           identifier: "LVSEngine",
           version: "1.0.0"
@@ -26,7 +26,7 @@ struct EvidenceTests {
   func evidenceManifestRecordsFactsWithoutVerdict() throws {
     let instant = Date(timeIntervalSince1970: 10)
     let provenance = try ExecutionProvenance(
-      producer: ProducerIdentity(
+      producer: try ProducerIdentity(
         kind: .engine,
         identifier: "DRCEngine",
         version: "1.0.0"
@@ -43,5 +43,30 @@ struct EvidenceTests {
     #expect(decoded == manifest)
     #expect(decoded.provenance.randomSeed == 7)
     #expect(decoded.artifacts.isEmpty)
+  }
+
+  @Test
+  func producerIdentityRequiresStableIdentityAndVersion() {
+    #expect(throws: TokenError.self) {
+      try ProducerIdentity(kind: .engine, identifier: "", version: "1.0.0")
+    }
+    #expect(throws: TokenError.self) {
+      try ProducerIdentity(kind: .engine, identifier: "DRCEngine", version: "")
+    }
+  }
+
+  @Test
+  func provenanceRejectsNonFiniteTimestamp() {
+    #expect(throws: ExecutionProvenanceError.self) {
+      try ExecutionProvenance(
+        producer: try ProducerIdentity(
+          kind: .engine,
+          identifier: "DRCEngine",
+          version: "1.0.0"
+        ),
+        startedAt: Date(timeIntervalSinceReferenceDate: .nan),
+        completedAt: Date(timeIntervalSinceReferenceDate: 1)
+      )
+    }
   }
 }

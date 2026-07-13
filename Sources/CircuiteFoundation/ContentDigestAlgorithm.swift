@@ -1,13 +1,18 @@
-public struct ContentDigestAlgorithm: Sendable, Hashable, Codable, RawRepresentable {
+public struct ContentDigestAlgorithm: Sendable, Hashable, Codable {
   public let rawValue: String
 
-  public init(rawValue: String) {
+  public init(rawValue: String) throws {
+    try TokenValidation.validate(rawValue, kind: "Content digest algorithm")
     self.rawValue = rawValue
+  }
+
+  private init(uncheckedRawValue value: String) {
+    rawValue = value
   }
 
   public init(from decoder: any Decoder) throws {
     let container = try decoder.singleValueContainer()
-    rawValue = try container.decode(String.self)
+    try self.init(rawValue: container.decode(String.self))
   }
 
   public func encode(to encoder: any Encoder) throws {
@@ -15,5 +20,5 @@ public struct ContentDigestAlgorithm: Sendable, Hashable, Codable, RawRepresenta
     try container.encode(rawValue)
   }
 
-  public static let sha256 = Self(rawValue: "sha256")
+  public static let sha256 = Self(uncheckedRawValue: "sha256")
 }

@@ -54,7 +54,7 @@ struct ArtifactTests {
       let reference = try LocalArtifactReferencer().reference(
         locator,
         relativeTo: workspace,
-        producer: ProducerIdentity(
+        producer: try ProducerIdentity(
           kind: .engine,
           identifier: "TimingEngine",
           version: "1.0.0"
@@ -129,9 +129,22 @@ struct ArtifactTests {
   func digestRejectsIncompleteHexadecimalByte() {
     #expect(throws: ContentDigestError.self) {
       try ContentDigest(
-        algorithm: ContentDigestAlgorithm(rawValue: "custom"),
+        algorithm: try ContentDigestAlgorithm(rawValue: "custom"),
         hexadecimalValue: "abc"
       )
+    }
+  }
+
+  @Test
+  func extensibleFoundationTokensRejectEmptyValues() {
+    #expect(throws: TokenError.self) {
+      try ArtifactKind(rawValue: "")
+    }
+    #expect(throws: TokenError.self) {
+      try ArtifactFormat(rawValue: " json")
+    }
+    #expect(throws: TokenError.self) {
+      try ContentDigestAlgorithm(rawValue: "\u{0000}")
     }
   }
 
@@ -181,9 +194,13 @@ struct ArtifactTests {
       let fileURL = workspace.appendingPathComponent("custom.bin")
       try Data([0x01]).write(to: fileURL)
       let location = try ArtifactLocation(workspaceRelativePath: "custom.bin")
-      let algorithm = ContentDigestAlgorithm(rawValue: "custom")
+      let algorithm = try ContentDigestAlgorithm(rawValue: "custom")
       let reference = ArtifactReference(
-        locator: ArtifactLocator(location: location, kind: .evidence, format: "binary"),
+        locator: ArtifactLocator(
+          location: location,
+          kind: .evidence,
+          format: try ArtifactFormat(rawValue: "binary")
+        ),
         digest: try ContentDigest(algorithm: algorithm, hexadecimalValue: "00"),
         byteCount: 1
       )

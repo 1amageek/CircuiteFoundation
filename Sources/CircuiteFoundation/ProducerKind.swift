@@ -1,19 +1,18 @@
-public struct ProducerKind: Sendable, Hashable, Codable, RawRepresentable,
-  ExpressibleByStringLiteral
-{
+public struct ProducerKind: Sendable, Hashable, Codable {
   public let rawValue: String
 
-  public init(rawValue: String) {
+  public init(rawValue: String) throws {
+    try TokenValidation.validate(rawValue, kind: "Producer kind")
     self.rawValue = rawValue
   }
 
-  public init(stringLiteral value: String) {
-    self.init(rawValue: value)
+  private init(uncheckedRawValue value: String) {
+    rawValue = value
   }
 
   public init(from decoder: any Decoder) throws {
     let container = try decoder.singleValueContainer()
-    rawValue = try container.decode(String.self)
+    try self.init(rawValue: container.decode(String.self))
   }
 
   public func encode(to encoder: any Encoder) throws {
@@ -21,7 +20,7 @@ public struct ProducerKind: Sendable, Hashable, Codable, RawRepresentable,
     try container.encode(rawValue)
   }
 
-  public static let engine = Self(rawValue: "engine")
-  public static let library = Self(rawValue: "library")
-  public static let tool = Self(rawValue: "tool")
+  public static let engine = Self(uncheckedRawValue: "engine")
+  public static let library = Self(uncheckedRawValue: "library")
+  public static let tool = Self(uncheckedRawValue: "tool")
 }

@@ -1,19 +1,18 @@
-public struct ArtifactFormat: Sendable, Hashable, Codable, RawRepresentable,
-  ExpressibleByStringLiteral
-{
+public struct ArtifactFormat: Sendable, Hashable, Codable {
   public let rawValue: String
 
-  public init(rawValue: String) {
+  public init(rawValue: String) throws {
+    try TokenValidation.validate(rawValue, kind: "Artifact format")
     self.rawValue = rawValue
   }
 
-  public init(stringLiteral value: String) {
-    self.init(rawValue: value)
+  private init(uncheckedRawValue value: String) {
+    rawValue = value
   }
 
   public init(from decoder: any Decoder) throws {
     let container = try decoder.singleValueContainer()
-    rawValue = try container.decode(String.self)
+    try self.init(rawValue: container.decode(String.self))
   }
 
   public func encode(to encoder: any Encoder) throws {
@@ -21,17 +20,17 @@ public struct ArtifactFormat: Sendable, Hashable, Codable, RawRepresentable,
     try container.encode(rawValue)
   }
 
-  public static let def = Self(rawValue: "def")
-  public static let dspf = Self(rawValue: "dspf")
-  public static let gdsii = Self(rawValue: "gdsii")
-  public static let json = Self(rawValue: "json")
-  public static let lef = Self(rawValue: "lef")
-  public static let liberty = Self(rawValue: "liberty")
-  public static let oasis = Self(rawValue: "oasis")
-  public static let sdf = Self(rawValue: "sdf")
-  public static let spef = Self(rawValue: "spef")
-  public static let spice = Self(rawValue: "spice")
-  public static let systemVerilog = Self(rawValue: "system-verilog")
-  public static let verilog = Self(rawValue: "verilog")
-  public static let vcd = Self(rawValue: "vcd")
+  public static let def = Self(uncheckedRawValue: "def")
+  public static let dspf = Self(uncheckedRawValue: "dspf")
+  public static let gdsii = Self(uncheckedRawValue: "gdsii")
+  public static let json = Self(uncheckedRawValue: "json")
+  public static let lef = Self(uncheckedRawValue: "lef")
+  public static let liberty = Self(uncheckedRawValue: "liberty")
+  public static let oasis = Self(uncheckedRawValue: "oasis")
+  public static let sdf = Self(uncheckedRawValue: "sdf")
+  public static let spef = Self(uncheckedRawValue: "spef")
+  public static let spice = Self(uncheckedRawValue: "spice")
+  public static let systemVerilog = Self(uncheckedRawValue: "system-verilog")
+  public static let verilog = Self(uncheckedRawValue: "verilog")
+  public static let vcd = Self(uncheckedRawValue: "vcd")
 }

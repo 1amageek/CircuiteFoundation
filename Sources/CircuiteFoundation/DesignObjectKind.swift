@@ -1,19 +1,18 @@
-public struct DesignObjectKind: Sendable, Hashable, Codable, RawRepresentable,
-  ExpressibleByStringLiteral
-{
+public struct DesignObjectKind: Sendable, Hashable, Codable {
   public let rawValue: String
 
-  public init(rawValue: String) {
+  public init(rawValue: String) throws {
+    try TokenValidation.validate(rawValue, kind: "Design object kind")
     self.rawValue = rawValue
   }
 
-  public init(stringLiteral value: String) {
-    self.init(rawValue: value)
+  private init(uncheckedRawValue value: String) {
+    rawValue = value
   }
 
   public init(from decoder: any Decoder) throws {
     let container = try decoder.singleValueContainer()
-    rawValue = try container.decode(String.self)
+    try self.init(rawValue: container.decode(String.self))
   }
 
   public func encode(to encoder: any Encoder) throws {
@@ -21,9 +20,9 @@ public struct DesignObjectKind: Sendable, Hashable, Codable, RawRepresentable,
     try container.encode(rawValue)
   }
 
-  public static let cell = Self(rawValue: "cell")
-  public static let instance = Self(rawValue: "instance")
-  public static let net = Self(rawValue: "net")
-  public static let pin = Self(rawValue: "pin")
-  public static let port = Self(rawValue: "port")
+  public static let cell = Self(uncheckedRawValue: "cell")
+  public static let instance = Self(uncheckedRawValue: "instance")
+  public static let net = Self(uncheckedRawValue: "net")
+  public static let pin = Self(uncheckedRawValue: "pin")
+  public static let port = Self(uncheckedRawValue: "port")
 }
