@@ -3,8 +3,7 @@ import Foundation
 /// A producer-defined semantic role for an artifact.
 ///
 /// Roles remain open tokens because domain engines may introduce new roles
-/// without requiring a Foundation release. The legacy sentinel is used only
-/// when decoding pre-role artifact references.
+/// without requiring a Foundation release.
 public struct ArtifactRole: Sendable, Hashable, Codable, RawRepresentable {
   public let rawValue: String
 
@@ -34,7 +33,6 @@ public struct ArtifactRole: Sendable, Hashable, Codable, RawRepresentable {
     try container.encode(rawValue)
   }
 
-  public static let legacyUnspecified = Self(uncheckedRawValue: "legacy-unspecified")
   public static let input = Self(uncheckedRawValue: "input")
   public static let output = Self(uncheckedRawValue: "output")
   public static let primary = Self(uncheckedRawValue: "primary")
