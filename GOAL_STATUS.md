@@ -14,4 +14,4 @@ Updated: 2026-07-13
 | Build and test verification | Verified | `swift test` passed 40 Swift Testing cases in 6 suites; the package has no Xcode test action |
 | Migration of existing engines | In progress | Explicit Foundation boundaries are present in LogicEngine, DFT, flow, timing, PDK, physical-design, DRC, LVS, PEX, RTL and electrical-signoff packages |
 | ToolQualification migration | Implemented | ToolQualification production and test targets use CircuiteFoundation artifact references and formats directly |
-| Replacement of `XcircuitePackage` imports | In progress | ToolQualification imports are removed; remaining packages require direct protocol migration without compatibility adapters |
+| Replacement of former package imports | Complete | Active packages use direct Foundation protocols; the former package repository is deleted |
