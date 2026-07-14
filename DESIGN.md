@@ -55,13 +55,12 @@ Artifact identity is separated into two phases:
 | After materialization | `ArtifactReference` | A digest and byte count were captured for an immutable file |
 
 `ArtifactRole` is an open validated token. Domain packages may add roles without
-requiring a Foundation release. The legacy `legacy-unspecified` role is used
-only when decoding pre-role artifacts and must not be emitted by migrated
-producers.
+requiring a Foundation release. Every artifact locator must carry the semantic
+role assigned by its producer; an unspecified role is invalid.
 
-`ArtifactID` is an opaque stable token. UUID-shaped values remain valid for
-compatibility, but projections preserve producer-assigned identifiers such as
-domain or run artifact names instead of deriving a new UUID.
+`ArtifactID` is an opaque stable token. UUID-shaped values remain valid as
+opaque identifiers, but projections preserve producer-assigned identifiers
+such as domain or run artifact names instead of deriving a new UUID.
 
 `ExecutionInvocation` records either an in-process entry point or an external
 process invocation. `ExecutionEnvironmentFingerprint` records normalized

@@ -33,10 +33,11 @@ flowchart TD
 Domain results remain in their owning packages. A timing engine owns timing paths, a DRC engine owns violations,
 and a PDK package owns process rules. Xcircuite owns composition and orchestration.
 
-Artifact roles are open validated tokens. In-process and external-process
-invocations share one typed provenance model without persisting raw environment
-variables or secrets. New evidence manifests use schema version 2; legacy
-Foundation manifests remain decodable.
+Artifact roles are open validated tokens and every artifact locator requires an
+explicit role. In-process and external-process invocations share one typed
+provenance model without persisting raw environment variables or secrets.
+Evidence manifests carry an explicit schema version; missing schema metadata is
+rejected rather than inferred.
 
 ## Usage
 
