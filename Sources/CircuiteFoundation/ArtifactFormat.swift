@@ -12,23 +12,7 @@ public struct ArtifactFormat: Sendable, Hashable, Codable {
 
   public init(from decoder: any Decoder) throws {
     let container = try decoder.singleValueContainer()
-    try self.init(legacyRawValue: container.decode(String.self))
-  }
-
-  init(legacyRawValue value: String) throws {
-    let normalized = value.lowercased()
-        .replacingOccurrences(of: "_", with: "-")
-        .replacingOccurrences(of: " ", with: "-")
-    let mapped: String
-    switch normalized {
-    case "json": mapped = "json"
-    case "systemverilog", "system-verilog": mapped = "system-verilog"
-    case "gdsii", "gds-ii": mapped = "gdsii"
-    case "oas", "oasis": mapped = "oasis"
-    case "spice", "sp": mapped = "spice"
-    default: mapped = normalized
-    }
-    try self.init(rawValue: mapped)
+    try self.init(rawValue: container.decode(String.self))
   }
 
   public func encode(to encoder: any Encoder) throws {

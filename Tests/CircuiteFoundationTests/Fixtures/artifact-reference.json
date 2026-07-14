@@ -5,6 +5,7 @@
       "storage": "workspaceRelative",
       "value": "pex/extracted.spef"
     },
+    "role": "output",
     "kind": "parasitics",
     "format": "spef"
   },

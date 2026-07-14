@@ -134,7 +134,7 @@ struct ArtifactTests {
 
     #expect(reference.id.rawValue == "AF43165C-EC65-449D-868E-D26EB9C25A3F")
     #expect(reference.locator.location.value == "pex/extracted.spef")
-    #expect(reference.locator.role == .legacyUnspecified)
+    #expect(reference.locator.role == .output)
     #expect(reference.locator.kind == .parasitics)
     #expect(reference.locator.format == .spef)
     #expect(reference.byteCount == 128)

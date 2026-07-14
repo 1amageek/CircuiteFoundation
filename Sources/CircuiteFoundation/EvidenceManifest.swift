@@ -21,7 +21,7 @@ public struct EvidenceManifest: Sendable, Hashable, Codable, Identifiable {
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
-    self.schemaVersion = try container.decodeIfPresent(SchemaVersion.self, forKey: .schemaVersion) ?? .v1
+    self.schemaVersion = try container.decode(SchemaVersion.self, forKey: .schemaVersion)
     self.provenance = try container.decode(ExecutionProvenance.self, forKey: .provenance)
     self.artifacts = try container.decodeIfPresent([ArtifactReference].self, forKey: .artifacts) ?? []
   }

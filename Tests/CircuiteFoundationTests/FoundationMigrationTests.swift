@@ -107,34 +107,4 @@ struct FoundationMigrationTests {
     #expect(decoded == provenance)
   }
 
-  @Test
-  func legacyArtifactReferenceDecodesWithSentinelRole() throws {
-    let data = Data(#"{"location":{"storage":"workspaceRelative","value":"report.json"},"kind":"report","format":"json"}"#.utf8)
-    let locator = try JSONDecoder().decode(ArtifactLocator.self, from: data)
-
-    #expect(locator.role == .legacyUnspecified)
-  }
-
-  @Test
-  func legacyEvidenceWithoutSchemaDefaultsToV1() throws {
-    let producer = try ProducerIdentity(kind: .engine, identifier: "legacy", version: "1")
-    let instant = Date(timeIntervalSince1970: 10)
-    let provenance = try ExecutionProvenance(
-      producer: producer,
-      startedAt: instant,
-      completedAt: instant
-    )
-    let jsonObject = try JSONSerialization.jsonObject(
-      with: JSONEncoder().encode(EvidenceManifest(schemaVersion: .v1, provenance: provenance, artifacts: []))
-    )
-    guard var object = jsonObject as? [String: Any] else {
-      Issue.record("Legacy evidence fixture did not encode as an object")
-      return
-    }
-    object.removeValue(forKey: "schemaVersion")
-    let data = try JSONSerialization.data(withJSONObject: object)
-
-    let decoded = try JSONDecoder().decode(EvidenceManifest.self, from: data)
-    #expect(decoded.schemaVersion == .v1)
-  }
 }

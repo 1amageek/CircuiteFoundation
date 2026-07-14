@@ -6,18 +6,6 @@ public struct ArtifactLocator: Sendable, Hashable, Codable {
   public let kind: ArtifactKind
   public let format: ArtifactFormat
 
-  @available(*, deprecated, message: "Provide an ArtifactRole during migration.")
-  public init(
-    location: ArtifactLocation,
-    kind: ArtifactKind,
-    format: ArtifactFormat
-  ) {
-    self.location = location
-    self.role = .legacyUnspecified
-    self.kind = kind
-    self.format = format
-  }
-
   public init(
     location: ArtifactLocation,
     role: ArtifactRole,
@@ -33,7 +21,7 @@ public struct ArtifactLocator: Sendable, Hashable, Codable {
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.location = try container.decode(ArtifactLocation.self, forKey: .location)
-    self.role = try container.decodeIfPresent(ArtifactRole.self, forKey: .role) ?? .legacyUnspecified
+    self.role = try container.decode(ArtifactRole.self, forKey: .role)
     self.kind = try container.decode(ArtifactKind.self, forKey: .kind)
     self.format = try container.decode(ArtifactFormat.self, forKey: .format)
   }

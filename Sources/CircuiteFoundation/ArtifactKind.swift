@@ -12,23 +12,7 @@ public struct ArtifactKind: Sendable, Hashable, Codable {
 
   public init(from decoder: any Decoder) throws {
     let container = try decoder.singleValueContainer()
-    try self.init(legacyRawValue: container.decode(String.self))
-  }
-
-  init(legacyRawValue value: String) throws {
-    let normalized = value.lowercased()
-        .replacingOccurrences(of: "_", with: "-")
-        .replacingOccurrences(of: " ", with: "-")
-    let mapped: String
-    switch normalized {
-    case "timinglibrary", "timing-library": mapped = "timing.library"
-    case "testpattern", "test-pattern": mapped = "test-pattern"
-    case "powerintent", "power-intent": mapped = "power-intent"
-    case "design-diff": mapped = "design-diff"
-    case "ruledeck", "rule-deck": mapped = "rule-deck"
-    default: mapped = normalized
-    }
-    try self.init(rawValue: mapped)
+    try self.init(rawValue: container.decode(String.self))
   }
 
   public func encode(to encoder: any Encoder) throws {
