@@ -6,5 +6,4 @@ public extension ArtifactReference {
   var kind: ArtifactKind { locator.kind }
   var format: ArtifactFormat { locator.format }
   var artifactID: String { id.rawValue }
-  var sha256: String { digest.hexadecimalValue }
 }
