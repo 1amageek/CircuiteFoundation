@@ -4,9 +4,8 @@ import CryptoKit
 /// Stable identity for an immutable artifact.
 ///
 /// Artifact identifiers are opaque tokens rather than UUIDs because domain
-/// packages already expose stable identifiers such as `design` or
-/// `dft-release-result`. Keeping the token preserves identity across
-/// Foundation projections and remains compatible with UUID-shaped values.
+/// packages already expose stable domain identifiers. Keeping the token
+/// preserves identity across Foundation projections.
 public struct ArtifactID: Sendable, Hashable, Codable, Identifiable {
   public let rawValue: String
 

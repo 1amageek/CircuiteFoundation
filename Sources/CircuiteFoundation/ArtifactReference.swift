@@ -38,7 +38,7 @@ public struct ArtifactReference: Sendable, Hashable, Codable, Identifiable {
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     self.init(
-      id: try container.decodeIfPresent(ArtifactID.self, forKey: .id),
+      id: try container.decode(ArtifactID.self, forKey: .id),
       locator: try container.decode(ArtifactLocator.self, forKey: .locator),
       digest: try container.decode(ContentDigest.self, forKey: .digest),
       byteCount: try container.decode(UInt64.self, forKey: .byteCount),

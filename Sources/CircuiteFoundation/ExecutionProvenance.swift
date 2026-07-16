@@ -60,8 +60,8 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
     let container = try decoder.container(keyedBy: CodingKeys.self)
     try self.init(
       producer: container.decode(ProducerIdentity.self, forKey: .producer),
-      supportingTools: container.decodeIfPresent([ProducerIdentity].self, forKey: .supportingTools) ?? [],
-      inputs: container.decodeIfPresent([ArtifactReference].self, forKey: .inputs) ?? [],
+      supportingTools: container.decode([ProducerIdentity].self, forKey: .supportingTools),
+      inputs: container.decode([ArtifactReference].self, forKey: .inputs),
       invocation: container.decodeIfPresent(ExecutionInvocation.self, forKey: .invocation),
       environment: container.decodeIfPresent(
         ExecutionEnvironmentFingerprint.self, forKey: .environment),

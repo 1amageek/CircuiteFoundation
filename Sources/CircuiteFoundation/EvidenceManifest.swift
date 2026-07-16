@@ -20,10 +20,10 @@ public struct EvidenceManifest: Sendable, Hashable, Codable, Identifiable {
 
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
-    self.id = try container.decodeIfPresent(UUID.self, forKey: .id) ?? UUID()
+    self.id = try container.decode(UUID.self, forKey: .id)
     self.schemaVersion = try container.decode(SchemaVersion.self, forKey: .schemaVersion)
     self.provenance = try container.decode(ExecutionProvenance.self, forKey: .provenance)
-    self.artifacts = try container.decodeIfPresent([ArtifactReference].self, forKey: .artifacts) ?? []
+    self.artifacts = try container.decode([ArtifactReference].self, forKey: .artifacts)
   }
 
   private enum CodingKeys: String, CodingKey {

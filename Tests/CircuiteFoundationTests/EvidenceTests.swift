@@ -46,6 +46,52 @@ struct EvidenceTests {
   }
 
   @Test
+  func evidenceManifestRejectsMissingRequiredCollections() throws {
+    let instant = Date(timeIntervalSince1970: 10)
+    let provenance = try ExecutionProvenance(
+      producer: try ProducerIdentity(
+        kind: .engine,
+        identifier: "DRCEngine",
+        version: "1.0.0"
+      ),
+      startedAt: instant,
+      completedAt: instant
+    )
+    let manifest = EvidenceManifest(provenance: provenance, artifacts: [])
+    let encoder = JSONEncoder()
+    let encoded = try encoder.encode(manifest)
+    var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    object.removeValue(forKey: "artifacts")
+    let incomplete = try JSONSerialization.data(withJSONObject: object)
+
+    #expect(throws: DecodingError.self) {
+      _ = try JSONDecoder().decode(EvidenceManifest.self, from: incomplete)
+    }
+  }
+
+  @Test
+  func provenanceRejectsMissingRequiredInputCollection() throws {
+    let instant = Date(timeIntervalSince1970: 10)
+    let provenance = try ExecutionProvenance(
+      producer: try ProducerIdentity(
+        kind: .engine,
+        identifier: "DRCEngine",
+        version: "1.0.0"
+      ),
+      startedAt: instant,
+      completedAt: instant
+    )
+    let encoded = try JSONEncoder().encode(provenance)
+    var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    object.removeValue(forKey: "inputs")
+    let incomplete = try JSONSerialization.data(withJSONObject: object)
+
+    #expect(throws: DecodingError.self) {
+      _ = try JSONDecoder().decode(ExecutionProvenance.self, from: incomplete)
+    }
+  }
+
+  @Test
   func producerIdentityRequiresStableIdentityAndVersion() {
     #expect(throws: TokenError.self) {
       try ProducerIdentity(kind: .engine, identifier: "", version: "1.0.0")

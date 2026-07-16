@@ -120,6 +120,33 @@ struct ArtifactTests {
   }
 
   @Test
+  func artifactReferenceRejectsMissingIdentity() throws {
+    let location = try ArtifactLocation(workspaceRelativePath: "pex/extracted.spef")
+    let digest = try ContentDigest(
+      algorithm: .sha256,
+      hexadecimalValue: String(repeating: "a", count: 64)
+    )
+    let reference = ArtifactReference(
+      locator: ArtifactLocator(
+        location: location,
+        role: .output,
+        kind: .parasitics,
+        format: .spef
+      ),
+      digest: digest,
+      byteCount: 128
+    )
+    let encoded = try JSONEncoder().encode(reference)
+    var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    object.removeValue(forKey: "id")
+    let incomplete = try JSONSerialization.data(withJSONObject: object)
+
+    #expect(throws: DecodingError.self) {
+      _ = try JSONDecoder().decode(ArtifactReference.self, from: incomplete)
+    }
+  }
+
+  @Test
   func artifactReferenceFixturePreservesPublicSchema() throws {
     let fixtureURL = try #require(
       Bundle.module.url(
