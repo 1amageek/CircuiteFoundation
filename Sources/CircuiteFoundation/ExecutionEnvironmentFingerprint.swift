@@ -23,4 +23,24 @@ public struct ExecutionEnvironmentFingerprint: Sendable, Hashable, Codable {
     self.toolchain = toolchain
     self.environmentDigest = environmentDigest
   }
+
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    try self.init(
+      platform: container.decode(String.self, forKey: .platform),
+      architecture: container.decode(String.self, forKey: .architecture),
+      toolchain: container.decode(String.self, forKey: .toolchain),
+      environmentDigest: container.decodeIfPresent(
+        ContentDigest.self,
+        forKey: .environmentDigest
+      )
+    )
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case platform
+    case architecture
+    case toolchain
+    case environmentDigest
+  }
 }

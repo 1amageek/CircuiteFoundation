@@ -80,6 +80,28 @@ struct FoundationMigrationTests {
   }
 
   @Test
+  func executionInvocationDecoderEnforcesModeInvariants() throws {
+    let data = Data(
+      #"{"mode":"inProcess","entryPoint":"Engine.run","executable":"/usr/bin/tool","arguments":[],"workingDirectory":null}"#.utf8
+    )
+
+    #expect(throws: ExecutionInvocationError.invalidInProcessFields) {
+      _ = try JSONDecoder().decode(ExecutionInvocation.self, from: data)
+    }
+  }
+
+  @Test
+  func executionEnvironmentDecoderEnforcesValidatedTokens() throws {
+    let data = Data(
+      #"{"platform":" macOS","architecture":"arm64","toolchain":"swift-6.3.1","environmentDigest":null}"#.utf8
+    )
+
+    #expect(throws: TokenError.self) {
+      _ = try JSONDecoder().decode(ExecutionEnvironmentFingerprint.self, from: data)
+    }
+  }
+
+  @Test
   func provenanceRoundTripsInvocationAndEnvironment() throws {
     let producer = try ProducerIdentity(
       kind: .engine,

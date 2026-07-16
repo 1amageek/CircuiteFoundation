@@ -78,4 +78,23 @@ public struct ExecutionInvocation: Sendable, Hashable, Codable {
     self.arguments = arguments
     self.workingDirectory = workingDirectory
   }
+
+  public init(from decoder: any Decoder) throws {
+    let container = try decoder.container(keyedBy: CodingKeys.self)
+    try self.init(
+      mode: container.decode(Mode.self, forKey: .mode),
+      entryPoint: container.decodeIfPresent(String.self, forKey: .entryPoint),
+      executable: container.decodeIfPresent(String.self, forKey: .executable),
+      arguments: container.decode([String].self, forKey: .arguments),
+      workingDirectory: container.decodeIfPresent(String.self, forKey: .workingDirectory)
+    )
+  }
+
+  private enum CodingKeys: String, CodingKey {
+    case mode
+    case entryPoint
+    case executable
+    case arguments
+    case workingDirectory
+  }
 }

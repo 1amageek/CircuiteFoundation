@@ -70,6 +70,31 @@ struct EvidenceTests {
   }
 
   @Test
+  func evidenceManifestRejectsUnsupportedSchemaVersion() throws {
+    let instant = Date(timeIntervalSince1970: 10)
+    let manifest = EvidenceManifest(
+      provenance: try ExecutionProvenance(
+        producer: try ProducerIdentity(
+          kind: .engine,
+          identifier: "DRCEngine",
+          version: "1.0.0"
+        ),
+        startedAt: instant,
+        completedAt: instant
+      ),
+      artifacts: []
+    )
+    let encoded = try JSONEncoder().encode(manifest)
+    var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
+    object["schemaVersion"] = ["major": 1, "minor": 0, "patch": 0]
+    let unsupported = try JSONSerialization.data(withJSONObject: object)
+
+    #expect(throws: DecodingError.self) {
+      _ = try JSONDecoder().decode(EvidenceManifest.self, from: unsupported)
+    }
+  }
+
+  @Test
   func provenanceRejectsMissingRequiredInputCollection() throws {
     let instant = Date(timeIntervalSince1970: 10)
     let provenance = try ExecutionProvenance(
