@@ -46,6 +46,41 @@ struct EvidenceTests {
   }
 
   @Test
+  func evidenceManifestDerivesStableIdentityFromContent() throws {
+    let instant = Date(timeIntervalSince1970: 10)
+    let provenance = try ExecutionProvenance(
+      producer: try ProducerIdentity(
+        kind: .engine,
+        identifier: "DRCEngine",
+        version: "1.0.0"
+      ),
+      randomSeed: 7,
+      startedAt: instant,
+      completedAt: instant
+    )
+
+    let first = EvidenceManifest(provenance: provenance, artifacts: [])
+    let second = EvidenceManifest(provenance: provenance, artifacts: [])
+    let changed = EvidenceManifest(
+      provenance: try ExecutionProvenance(
+        producer: provenance.producer,
+        randomSeed: 8,
+        startedAt: instant,
+        completedAt: instant
+      ),
+      artifacts: []
+    )
+
+    #expect(first.id == second.id)
+    #expect(first.id != changed.id)
+    let decoded = try JSONDecoder().decode(
+      EvidenceManifest.self,
+      from: JSONEncoder().encode(first)
+    )
+    #expect(decoded.id == first.id)
+  }
+
+  @Test
   func evidenceManifestRejectsMissingRequiredCollections() throws {
     let instant = Date(timeIntervalSince1970: 10)
     let provenance = try ExecutionProvenance(
