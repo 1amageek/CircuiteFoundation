@@ -5,6 +5,11 @@ import Testing
 @Suite
 struct FoundationValueTests {
   @Test
+  func nanometerGridUsesOneThousandUnitsPerMicrometer() {
+    #expect(DatabaseUnitScale.nanometerGrid.databaseUnitsPerMicrometer == 1_000)
+  }
+
+  @Test
   func databaseUnitsRoundTripThroughFoundationMeasurement() throws {
     let scale = try DatabaseUnitScale(databaseUnitsPerMicrometer: 1_000)
 

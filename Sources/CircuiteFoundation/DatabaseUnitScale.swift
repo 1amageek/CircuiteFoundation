@@ -3,6 +3,9 @@ import Foundation
 public struct DatabaseUnitScale: Sendable, Hashable, Codable {
   public let databaseUnitsPerMicrometer: Double
 
+  /// A one-nanometer database grid: 1,000 database units per micrometer.
+  public static let nanometerGrid = Self(validatedDatabaseUnitsPerMicrometer: 1_000)
+
   public init(databaseUnitsPerMicrometer: Double) throws {
     guard databaseUnitsPerMicrometer.isFinite, databaseUnitsPerMicrometer > 0 else {
       throw DatabaseUnitScaleError.invalidScale(databaseUnitsPerMicrometer)
@@ -43,5 +46,9 @@ public struct DatabaseUnitScale: Sendable, Hashable, Codable {
   public func encode(to encoder: any Encoder) throws {
     var container = encoder.singleValueContainer()
     try container.encode(databaseUnitsPerMicrometer)
+  }
+
+  private init(validatedDatabaseUnitsPerMicrometer value: Double) {
+    databaseUnitsPerMicrometer = value
   }
 }
