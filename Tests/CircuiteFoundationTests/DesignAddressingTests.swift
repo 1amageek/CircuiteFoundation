@@ -30,10 +30,13 @@ struct DesignAddressingTests {
 
   @Test
   func diagnosticCarriesMachineReadableSubjectAndAction() throws {
-    let subject = try DesignObjectReference(
-      kind: .net,
-      identifier: "clock",
-      hierarchy: try HierarchyPath("top/cpu")
+    let subject = DesignSubjectReference.path(
+      try DesignPathReference(
+        facetID: DesignFacetID(rawValue: "timing"),
+        kindID: DesignEntityKindID(rawValue: "net"),
+        hierarchy: try HierarchyPath("top/cpu"),
+        localIdentifier: "clock"
+      )
     )
     let diagnostic = DesignDiagnostic(
       code: try DiagnosticCode(rawValue: "timing.hold-violation"),
@@ -50,9 +53,13 @@ struct DesignAddressingTests {
   }
 
   @Test
-  func designObjectReferenceRequiresIdentifier() {
+  func designPathReferenceRequiresIdentifier() {
     #expect(throws: TokenError.self) {
-      try DesignObjectReference(kind: .net, identifier: "")
+      try DesignPathReference(
+        facetID: DesignFacetID(rawValue: "timing"),
+        kindID: DesignEntityKindID(rawValue: "net"),
+        localIdentifier: ""
+      )
     }
   }
 }

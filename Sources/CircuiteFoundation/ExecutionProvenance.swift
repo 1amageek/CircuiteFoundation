@@ -7,7 +7,8 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
   public let invocation: ExecutionInvocation?
   public let environment: ExecutionEnvironmentFingerprint?
   public let configurationDigest: ContentDigest?
-  public let designRevision: ContentDigest?
+  public let inputDesignRevision: DesignRevisionReference?
+  public let outputDesignRevision: DesignRevisionReference?
   public let randomSeed: UInt64?
   public let startedAt: Date
   public let completedAt: Date
@@ -19,7 +20,8 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
     invocation: ExecutionInvocation? = nil,
     environment: ExecutionEnvironmentFingerprint? = nil,
     configurationDigest: ContentDigest? = nil,
-    designRevision: ContentDigest? = nil,
+    inputDesignRevision: DesignRevisionReference? = nil,
+    outputDesignRevision: DesignRevisionReference? = nil,
     randomSeed: UInt64? = nil,
     startedAt: Date,
     completedAt: Date
@@ -50,7 +52,8 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
     self.invocation = invocation
     self.environment = environment
     self.configurationDigest = configurationDigest
-    self.designRevision = designRevision
+    self.inputDesignRevision = inputDesignRevision
+    self.outputDesignRevision = outputDesignRevision
     self.randomSeed = randomSeed
     self.startedAt = startedAt
     self.completedAt = completedAt
@@ -67,7 +70,14 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
         ExecutionEnvironmentFingerprint.self, forKey: .environment),
       configurationDigest: container.decodeIfPresent(
         ContentDigest.self, forKey: .configurationDigest),
-      designRevision: container.decodeIfPresent(ContentDigest.self, forKey: .designRevision),
+      inputDesignRevision: container.decodeIfPresent(
+        DesignRevisionReference.self,
+        forKey: .inputDesignRevision
+      ),
+      outputDesignRevision: container.decodeIfPresent(
+        DesignRevisionReference.self,
+        forKey: .outputDesignRevision
+      ),
       randomSeed: container.decodeIfPresent(UInt64.self, forKey: .randomSeed),
       startedAt: container.decode(Date.self, forKey: .startedAt),
       completedAt: container.decode(Date.self, forKey: .completedAt)
@@ -81,7 +91,8 @@ public struct ExecutionProvenance: Sendable, Hashable, Codable {
     case invocation
     case environment
     case configurationDigest
-    case designRevision
+    case inputDesignRevision
+    case outputDesignRevision
     case randomSeed
     case startedAt
     case completedAt

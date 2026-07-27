@@ -6,7 +6,7 @@ import Crypto
 import Foundation
 
 public struct EvidenceManifest: Sendable, Hashable, Codable, Identifiable {
-  public static let currentSchemaVersion = SchemaVersion.v2
+  public static let currentSchemaVersion = SchemaVersion.v3
 
   public let id: UUID
   public let schemaVersion: SchemaVersion
@@ -64,7 +64,8 @@ public struct EvidenceManifest: Sendable, Hashable, Codable, Identifiable {
     identity.append(provenance.invocation)
     identity.append(provenance.environment)
     identity.append(provenance.configurationDigest)
-    identity.append(provenance.designRevision)
+    identity.append(provenance.inputDesignRevision)
+    identity.append(provenance.outputDesignRevision)
     identity.append(provenance.randomSeed)
     identity.append(provenance.startedAt)
     identity.append(provenance.completedAt)
@@ -140,6 +141,16 @@ private struct EvidenceIdentityData {
     appendPresence(true)
     append(value.algorithm.rawValue)
     append(value.hexadecimalValue)
+  }
+
+  mutating func append(_ value: DesignRevisionReference?) {
+    guard let value else {
+      appendPresence(false)
+      return
+    }
+    appendPresence(true)
+    append(value.databaseID.description)
+    append(value.revisionID.description)
   }
 
   mutating func append(_ value: ExecutionInvocation?) {

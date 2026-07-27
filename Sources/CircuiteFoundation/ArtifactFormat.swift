@@ -26,6 +26,7 @@ public struct ArtifactFormat: Sendable, Hashable, Codable {
   public static let cif = Self(uncheckedRawValue: "cif")
   public static let csv = Self(uncheckedRawValue: "csv")
   public static let dxf = Self(uncheckedRawValue: "dxf")
+  public static let dslx = Self(uncheckedRawValue: "dslx")
   public static let fst = Self(uncheckedRawValue: "fst")
   public static let gdsii = Self(uncheckedRawValue: "gdsii")
   public static let json = Self(uncheckedRawValue: "json")
@@ -45,4 +46,5 @@ public struct ArtifactFormat: Sendable, Hashable, Codable {
   public static let verilog = Self(uncheckedRawValue: "verilog")
   public static let vcd = Self(uncheckedRawValue: "vcd")
   public static let wgl = Self(uncheckedRawValue: "wgl")
+  public static let xlsIR = Self(uncheckedRawValue: "xls-ir")
 }

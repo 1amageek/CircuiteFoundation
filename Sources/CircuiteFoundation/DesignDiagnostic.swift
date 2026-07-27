@@ -3,7 +3,7 @@ public struct DesignDiagnostic: Sendable, Hashable, Codable {
   public let severity: DiagnosticSeverity
   public let summary: String
   public let detail: String?
-  public let subject: DesignObjectReference?
+  public let subject: DesignSubjectReference?
   public let artifactID: ArtifactID?
   public let suggestedActions: [SuggestedAction]
 
@@ -12,7 +12,7 @@ public struct DesignDiagnostic: Sendable, Hashable, Codable {
     severity: DiagnosticSeverity,
     summary: String,
     detail: String? = nil,
-    subject: DesignObjectReference? = nil,
+    subject: DesignSubjectReference? = nil,
     artifactID: ArtifactID? = nil,
     suggestedActions: [SuggestedAction] = []
   ) {
