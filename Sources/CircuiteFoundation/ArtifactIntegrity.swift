@@ -1,4 +1,4 @@
-public struct ArtifactIntegrity: Sendable, Hashable, Codable {
+public struct ArtifactIntegrity: Sendable, Hashable {
   public let issues: [ArtifactIntegrityIssue]
 
   public var isVerified: Bool { issues.isEmpty }

@@ -1,4 +1,4 @@
-public struct DesignDatabaseID: Sendable, Hashable, Codable, CustomStringConvertible {
+public struct DesignDatabaseID: Sendable, Hashable, CustomStringConvertible {
   public let high: UInt64
   public let low: UInt64
 
@@ -22,13 +22,4 @@ public struct DesignDatabaseID: Sendable, Hashable, Codable, CustomStringConvert
     try self.init(high: words.0, low: words.1)
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    try self.init(hexadecimalValue: container.decode(String.self))
-  }
-
-  public func encode(to encoder: any Encoder) throws {
-    var container = encoder.singleValueContainer()
-    try container.encode(description)
-  }
 }

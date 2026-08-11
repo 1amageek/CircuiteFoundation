@@ -1,4 +1,4 @@
-public enum InteroperabilityBackend: Sendable, Hashable, Codable {
+public enum InteroperabilityBackend: Sendable, Hashable {
   case native
   case external(ExternalSystemID)
 }

@@ -1,4 +1,6 @@
 import CircuiteFoundation
+import CircuiteFoundationCrypto
+import CircuiteFoundationFoundation
 import Foundation
 import Testing
 
@@ -35,7 +37,11 @@ struct EvidenceTests {
       startedAt: instant,
       completedAt: instant
     )
-    let manifest = EvidenceManifest(provenance: provenance, artifacts: [])
+    let manifest = try EvidenceManifest.contentAddressed(
+      provenance: provenance,
+      artifacts: [],
+      digester: SHA256ContentDigester()
+    )
 
     let encoded = try JSONEncoder().encode(manifest)
     let decoded = try JSONDecoder().decode(EvidenceManifest.self, from: encoded)
@@ -59,16 +65,25 @@ struct EvidenceTests {
       completedAt: instant
     )
 
-    let first = EvidenceManifest(provenance: provenance, artifacts: [])
-    let second = EvidenceManifest(provenance: provenance, artifacts: [])
-    let changed = EvidenceManifest(
+    let first = try EvidenceManifest.contentAddressed(
+      provenance: provenance,
+      artifacts: [],
+      digester: SHA256ContentDigester()
+    )
+    let second = try EvidenceManifest.contentAddressed(
+      provenance: provenance,
+      artifacts: [],
+      digester: SHA256ContentDigester()
+    )
+    let changed = try EvidenceManifest.contentAddressed(
       provenance: try ExecutionProvenance(
         producer: provenance.producer,
         randomSeed: 8,
         startedAt: instant,
         completedAt: instant
       ),
-      artifacts: []
+      artifacts: [],
+      digester: SHA256ContentDigester()
     )
 
     #expect(first.id == second.id)
@@ -92,7 +107,11 @@ struct EvidenceTests {
       startedAt: instant,
       completedAt: instant
     )
-    let manifest = EvidenceManifest(provenance: provenance, artifacts: [])
+    let manifest = try EvidenceManifest.contentAddressed(
+      provenance: provenance,
+      artifacts: [],
+      digester: SHA256ContentDigester()
+    )
     let encoder = JSONEncoder()
     let encoded = try encoder.encode(manifest)
     var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])
@@ -107,7 +126,7 @@ struct EvidenceTests {
   @Test
   func evidenceManifestRejectsUnsupportedSchemaVersion() throws {
     let instant = Date(timeIntervalSince1970: 10)
-    let manifest = EvidenceManifest(
+    let manifest = try EvidenceManifest.contentAddressed(
       provenance: try ExecutionProvenance(
         producer: try ProducerIdentity(
           kind: .engine,
@@ -117,7 +136,8 @@ struct EvidenceTests {
         startedAt: instant,
         completedAt: instant
       ),
-      artifacts: []
+      artifacts: [],
+      digester: SHA256ContentDigester()
     )
     let encoded = try JSONEncoder().encode(manifest)
     var object = try #require(JSONSerialization.jsonObject(with: encoded) as? [String: Any])

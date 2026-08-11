@@ -1,4 +1,4 @@
-public struct InteroperabilityReport: Sendable, Hashable, Codable {
+public struct InteroperabilityReport: Sendable, Hashable {
   public let sourceSystem: ExternalSystemID
   public let targetSystem: ExternalSystemID
   public let direction: InteroperabilityDirection
@@ -40,28 +40,4 @@ public struct InteroperabilityReport: Sendable, Hashable, Codable {
     guard isSemanticallyComplete else { throw .semanticLoss(self) }
   }
 
-  private enum CodingKeys: String, CodingKey {
-    case sourceSystem
-    case targetSystem
-    case direction
-    case sourceDigest
-    case targetDigest
-    case mappedObjectCount
-    case unmappedSemanticCount
-    case losses
-  }
-
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    self.init(
-      sourceSystem: try container.decode(ExternalSystemID.self, forKey: .sourceSystem),
-      targetSystem: try container.decode(ExternalSystemID.self, forKey: .targetSystem),
-      direction: try container.decode(InteroperabilityDirection.self, forKey: .direction),
-      sourceDigest: try container.decodeIfPresent(ContentDigest.self, forKey: .sourceDigest),
-      targetDigest: try container.decodeIfPresent(ContentDigest.self, forKey: .targetDigest),
-      mappedObjectCount: try container.decode(UInt64.self, forKey: .mappedObjectCount),
-      unmappedSemanticCount: try container.decode(UInt64.self, forKey: .unmappedSemanticCount),
-      losses: try container.decode([InteroperabilityLoss].self, forKey: .losses)
-    )
-  }
 }

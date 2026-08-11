@@ -1,4 +1,4 @@
-public struct SchemaVersion: Sendable, Hashable, Codable, Comparable, CustomStringConvertible {
+public struct SchemaVersion: Sendable, Hashable, Comparable, CustomStringConvertible {
   public let major: UInt16
   public let minor: UInt16
   public let patch: UInt16

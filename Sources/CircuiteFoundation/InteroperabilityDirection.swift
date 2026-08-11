@@ -1,4 +1,4 @@
-public enum InteroperabilityDirection: String, Sendable, Hashable, Codable {
+public enum InteroperabilityDirection: String, Sendable, Hashable {
   case importToLSI
   case exportFromLSI
   case roundTrip

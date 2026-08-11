@@ -1,6 +1,4 @@
-import Foundation
-
-public enum ArtifactRoleError: Error, Sendable, Equatable, LocalizedError {
+public enum ArtifactRoleError: Error, Sendable, Equatable {
   case containsPathSeparator(String)
 
   public var errorDescription: String? {

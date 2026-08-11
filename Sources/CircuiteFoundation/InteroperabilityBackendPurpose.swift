@@ -1,4 +1,4 @@
-public enum InteroperabilityBackendPurpose: String, Sendable, Hashable, Codable {
+public enum InteroperabilityBackendPurpose: String, Sendable, Hashable {
   case primary
   case compatibility
   case oracle

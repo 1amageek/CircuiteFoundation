@@ -1,6 +1,4 @@
-import Foundation
-
-public enum DatabaseUnitScaleError: Error, Sendable, Equatable, LocalizedError {
+public enum DatabaseUnitScaleError: Error, Sendable, Equatable {
   case invalidScale(Double)
   case nonFiniteLength(Double)
   case valueOutOfRange(Double)

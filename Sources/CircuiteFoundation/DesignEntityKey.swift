@@ -1,4 +1,4 @@
-public struct DesignEntityKey: Sendable, Hashable, Codable {
+public struct DesignEntityKey: Sendable, Hashable {
   public let databaseID: DesignDatabaseID
   public let entityID: DesignEntityID
 

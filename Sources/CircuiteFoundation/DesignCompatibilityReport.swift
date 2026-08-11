@@ -1,4 +1,4 @@
-public struct DesignCompatibilityReport: Sendable, Hashable, Codable {
+public struct DesignCompatibilityReport: Sendable, Hashable {
   public let agreedSchemas: [DesignSchemaDescriptor]
   public let agreedCapabilities: [DesignCapabilityDescriptor]
   public let missingRequiredSchemas: [DesignSchemaRequirement]

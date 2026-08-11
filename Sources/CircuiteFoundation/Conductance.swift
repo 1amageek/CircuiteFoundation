@@ -1,4 +1,4 @@
-public struct Conductance: Sendable, Hashable, Codable, Comparable {
+public struct Conductance: Sendable, Hashable, Comparable {
   public let siemens: Double
 
   public var millisiemens: Double { siemens * 1e3 }
@@ -23,13 +23,4 @@ public struct Conductance: Sendable, Hashable, Codable, Comparable {
     lhs.siemens < rhs.siemens
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    try self.init(siemens: container.decode(Double.self))
-  }
-
-  public func encode(to encoder: any Encoder) throws {
-    var container = encoder.singleValueContainer()
-    try container.encode(siemens)
-  }
 }

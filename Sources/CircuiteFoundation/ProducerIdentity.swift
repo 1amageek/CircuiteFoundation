@@ -1,4 +1,4 @@
-public struct ProducerIdentity: Sendable, Hashable, Codable {
+public struct ProducerIdentity: Sendable, Hashable {
   public let kind: ProducerKind
   public let identifier: String
   public let version: String
@@ -21,20 +21,4 @@ public struct ProducerIdentity: Sendable, Hashable, Codable {
     self.build = build
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    try self.init(
-      kind: container.decode(ProducerKind.self, forKey: .kind),
-      identifier: container.decode(String.self, forKey: .identifier),
-      version: container.decode(String.self, forKey: .version),
-      build: container.decodeIfPresent(String.self, forKey: .build)
-    )
-  }
-
-  private enum CodingKeys: String, CodingKey {
-    case kind
-    case identifier
-    case version
-    case build
-  }
 }

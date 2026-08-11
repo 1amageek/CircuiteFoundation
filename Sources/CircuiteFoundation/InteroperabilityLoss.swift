@@ -1,6 +1,4 @@
-import Foundation
-
-public struct InteroperabilityLoss: Sendable, Hashable, Codable {
+public struct InteroperabilityLoss: Sendable, Hashable {
   public let systemID: ExternalSystemID
   public let severity: InteroperabilityLossSeverity
   public let kind: InteroperabilityLossKind
@@ -19,11 +17,11 @@ public struct InteroperabilityLoss: Sendable, Hashable, Codable {
     sourcePath: String? = nil
   ) throws {
     try TokenValidation.validate(code, kind: "Interoperability loss code")
-    guard !message.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+    guard !message.isEmpty, !message.allSatisfy({ $0.isWhitespace }) else {
       throw InteroperabilityContractError.emptyLossMessage(code: code)
     }
     if let sourcePath {
-      guard !sourcePath.trimmingCharacters(in: .whitespacesAndNewlines).isEmpty else {
+      guard !sourcePath.isEmpty, !sourcePath.allSatisfy({ $0.isWhitespace }) else {
         throw InteroperabilityContractError.emptySourcePath(code: code)
       }
     }
@@ -36,26 +34,4 @@ public struct InteroperabilityLoss: Sendable, Hashable, Codable {
     self.sourcePath = sourcePath
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    try self.init(
-      systemID: container.decode(ExternalSystemID.self, forKey: .systemID),
-      severity: container.decode(InteroperabilityLossSeverity.self, forKey: .severity),
-      kind: container.decode(InteroperabilityLossKind.self, forKey: .kind),
-      code: container.decode(String.self, forKey: .code),
-      message: container.decode(String.self, forKey: .message),
-      subject: container.decodeIfPresent(DesignSubjectReference.self, forKey: .subject),
-      sourcePath: container.decodeIfPresent(String.self, forKey: .sourcePath)
-    )
-  }
-
-  private enum CodingKeys: String, CodingKey {
-    case systemID
-    case severity
-    case kind
-    case code
-    case message
-    case subject
-    case sourcePath
-  }
 }

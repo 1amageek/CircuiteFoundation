@@ -1,216 +1,192 @@
-#if canImport(CryptoKit)
-import CryptoKit
-#else
-import Crypto
-#endif
-import Foundation
-
-public struct EvidenceManifest: Sendable, Hashable, Codable, Identifiable {
+public struct EvidenceManifest: Sendable, Hashable, Identifiable {
   public static let currentSchemaVersion = SchemaVersion.v3
 
-  public let id: UUID
+  public let id: EvidenceManifestID
   public let schemaVersion: SchemaVersion
   public let provenance: ExecutionProvenance
   public let artifacts: [ArtifactReference]
 
   public init(
-    id: UUID? = nil,
+    id: EvidenceManifestID,
     schemaVersion: SchemaVersion = Self.currentSchemaVersion,
     provenance: ExecutionProvenance,
     artifacts: [ArtifactReference]
   ) {
-    self.id = id ?? Self.contentDerivedID(
-      schemaVersion: schemaVersion,
-      provenance: provenance,
-      artifacts: artifacts
-    )
+    self.id = id
     self.schemaVersion = schemaVersion
     self.provenance = provenance
     self.artifacts = artifacts
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    self.id = try container.decode(UUID.self, forKey: .id)
-    self.schemaVersion = try container.decode(SchemaVersion.self, forKey: .schemaVersion)
-    guard schemaVersion == Self.currentSchemaVersion else {
-      throw DecodingError.dataCorruptedError(
-        forKey: .schemaVersion,
-        in: container,
-        debugDescription: "Expected evidence manifest schema version \(Self.currentSchemaVersion)."
-      )
+  public static func contentAddressed(
+    schemaVersion: SchemaVersion = Self.currentSchemaVersion,
+    provenance: ExecutionProvenance,
+    artifacts: [ArtifactReference],
+    digester: any ContentDigesting
+  ) throws(ContentDigestError) -> Self {
+    let canonicalBytes = EvidenceManifestCanonicalEncoding.encode(
+      schemaVersion: schemaVersion,
+      provenance: provenance,
+      artifacts: artifacts
+    )
+    let byteCount = UInt64(canonicalBytes.count)
+    let limits = try ContentDigestSessionLimits(
+      maximumChunkByteCount: max(byteCount, 1),
+      maximumTotalByteCount: max(byteCount, 1),
+      maximumUpdateCount: 1
+    )
+    let result = try digester.digest(using: .sha256, limits: limits) {
+      (lease: borrowing ContentDigestUpdateLease) throws(ContentDigestError) in
+      try lease.update(canonicalBytes)
     }
-    self.provenance = try container.decode(ExecutionProvenance.self, forKey: .provenance)
-    self.artifacts = try container.decode([ArtifactReference].self, forKey: .artifacts)
+    let digestBytes = EvidenceManifestCanonicalEncoding.decodeDigest(result.digest)
+    guard digestBytes.count >= 16 else {
+      throw .finalizationFailed(reason: "Evidence manifest digest contains fewer than 16 bytes.")
+    }
+    let high = EvidenceManifestCanonicalEncoding.decodeUInt64(digestBytes[0..<8])
+    let low = EvidenceManifestCanonicalEncoding.decodeUInt64(digestBytes[8..<16])
+    return Self(
+      id: EvidenceManifestID(high: high, low: low),
+      schemaVersion: schemaVersion,
+      provenance: provenance,
+      artifacts: artifacts
+    )
   }
 
-  private enum CodingKeys: String, CodingKey {
-    case id
-    case schemaVersion
-    case provenance
-    case artifacts
-  }
+}
 
-  private static func contentDerivedID(
+private enum EvidenceManifestCanonicalEncoding {
+  static func encode(
     schemaVersion: SchemaVersion,
     provenance: ExecutionProvenance,
     artifacts: [ArtifactReference]
-  ) -> UUID {
-    var identity = EvidenceIdentityData()
-    identity.append(schemaVersion.description)
-    identity.append(provenance.producer)
-    identity.append(provenance.supportingTools)
-    identity.append(provenance.inputs)
-    identity.append(provenance.invocation)
-    identity.append(provenance.environment)
-    identity.append(provenance.configurationDigest)
-    identity.append(provenance.inputDesignRevision)
-    identity.append(provenance.outputDesignRevision)
-    identity.append(provenance.randomSeed)
-    identity.append(provenance.startedAt)
-    identity.append(provenance.completedAt)
-    identity.append(artifacts)
-
-    var bytes = Array(SHA256.hash(data: identity.data).prefix(16))
-    bytes[6] = (bytes[6] & 0x0F) | 0x80
-    bytes[8] = (bytes[8] & 0x3F) | 0x80
-    return UUID(uuid: (
-      bytes[0], bytes[1], bytes[2], bytes[3],
-      bytes[4], bytes[5], bytes[6], bytes[7],
-      bytes[8], bytes[9], bytes[10], bytes[11],
-      bytes[12], bytes[13], bytes[14], bytes[15]
-    ))
-  }
-}
-
-private struct EvidenceIdentityData {
-  var data = Data()
-
-  mutating func append(_ value: String) {
-    appendPresence(true)
-    let bytes = Data(value.utf8)
-    appendCount(bytes.count)
-    data.append(bytes)
+  ) -> [UInt8] {
+    var writer = CanonicalByteWriter()
+    writer.append("CircuiteEvidenceManifest")
+    writer.append(schemaVersion.description)
+    writer.append(provenance.producer)
+    writer.append(provenance.supportingTools)
+    writer.append(provenance.inputs)
+    writer.append(provenance.invocation)
+    writer.append(provenance.environment)
+    writer.append(provenance.configurationDigest)
+    writer.append(provenance.inputDesignRevision)
+    writer.append(provenance.outputDesignRevision)
+    writer.append(provenance.randomSeed)
+    writer.append(provenance.startedAt)
+    writer.append(provenance.completedAt)
+    writer.append(artifacts)
+    return writer.bytes
   }
 
-  mutating func append(_ value: String?) {
-    guard let value else {
-      appendPresence(false)
-      return
+  static func decodeDigest(_ digest: ContentDigest) -> [UInt8] {
+    let bytes = Array(digest.hexadecimalValue.utf8)
+    var result: [UInt8] = []
+    result.reserveCapacity(bytes.count / 2)
+    var index = 0
+    while index < bytes.count {
+      result.append((nibble(bytes[index]) << 4) | nibble(bytes[index + 1]))
+      index += 2
     }
-    append(value)
+    return result
   }
 
-  mutating func append(_ value: UInt64?) {
-    guard let value else {
-      appendPresence(false)
-      return
+  static func decodeUInt64(_ bytes: ArraySlice<UInt8>) -> UInt64 {
+    bytes.reduce(0) { ($0 << 8) | UInt64($1) }
+  }
+
+  private static func nibble(_ byte: UInt8) -> UInt8 {
+    byte <= 57 ? byte - 48 : byte - 87
+  }
+
+  private struct CanonicalByteWriter {
+    var bytes: [UInt8] = []
+
+    mutating func append(_ value: String) {
+      let encoded = Array(value.utf8)
+      append(UInt64(encoded.count))
+      bytes.append(contentsOf: encoded)
     }
-    appendPresence(true)
-    append(value)
-  }
 
-  mutating func append(_ value: UInt64) {
-    var bigEndianValue = value.bigEndian
-    withUnsafeBytes(of: &bigEndianValue) { data.append(contentsOf: $0) }
-  }
-
-  mutating func append(_ value: Date) {
-    append(value.timeIntervalSinceReferenceDate.bitPattern)
-  }
-
-  mutating func append(_ value: ProducerIdentity) {
-    append(value.kind.rawValue)
-    append(value.identifier)
-    append(value.version)
-    append(value.build)
-  }
-
-  mutating func append(_ values: [ProducerIdentity]) {
-    appendCount(values.count)
-    for value in values {
-      append(value)
-    }
-  }
-
-  mutating func append(_ value: ContentDigest?) {
-    guard let value else {
-      appendPresence(false)
-      return
-    }
-    appendPresence(true)
-    append(value.algorithm.rawValue)
-    append(value.hexadecimalValue)
-  }
-
-  mutating func append(_ value: DesignRevisionReference?) {
-    guard let value else {
-      appendPresence(false)
-      return
-    }
-    appendPresence(true)
-    append(value.databaseID.description)
-    append(value.revisionID.description)
-  }
-
-  mutating func append(_ value: ExecutionInvocation?) {
-    guard let value else {
-      appendPresence(false)
-      return
-    }
-    appendPresence(true)
-    append(value.mode.rawValue)
-    append(value.entryPoint)
-    append(value.executable)
-    appendCount(value.arguments.count)
-    for argument in value.arguments {
-      append(argument)
-    }
-    append(value.workingDirectory)
-  }
-
-  mutating func append(_ value: ExecutionEnvironmentFingerprint?) {
-    guard let value else {
-      appendPresence(false)
-      return
-    }
-    appendPresence(true)
-    append(value.platform)
-    append(value.architecture)
-    append(value.toolchain)
-    append(value.environmentDigest)
-  }
-
-  mutating func append(_ values: [ArtifactReference]) {
-    appendCount(values.count)
-    for value in values {
-      append(value)
-    }
-  }
-
-  mutating func append(_ value: ArtifactReference) {
-    append(value.id.rawValue)
-    append(value.locator.location.storage.rawValue)
-    append(value.locator.location.value)
-    append(value.locator.role.rawValue)
-    append(value.locator.kind.rawValue)
-    append(value.locator.format.rawValue)
-    append(value.digest.algorithm.rawValue)
-    append(value.digest.hexadecimalValue)
-    append(value.byteCount)
-    if let producer = value.producer {
+    mutating func append(_ value: String?) {
+      guard let value else { return appendPresence(false) }
       appendPresence(true)
-      append(producer)
-    } else {
-      appendPresence(false)
+      append(value)
     }
-  }
 
-  private mutating func appendPresence(_ isPresent: Bool) {
-    data.append(isPresent ? 1 : 0)
-  }
+    mutating func append(_ value: UInt64) {
+      var value = value.bigEndian
+      withUnsafeBytes(of: &value) { bytes.append(contentsOf: $0) }
+    }
 
-  private mutating func appendCount(_ count: Int) {
-    append(UInt64(count))
+    mutating func append(_ value: UInt64?) {
+      guard let value else { return appendPresence(false) }
+      appendPresence(true)
+      append(value)
+    }
+
+    mutating func append(_ value: ExecutionTimestamp) {
+      append(value.secondsSinceUnixEpoch.bitPattern)
+    }
+
+    mutating func append(_ value: ProducerIdentity) {
+      append(value.kind.rawValue)
+      append(value.identifier)
+      append(value.version)
+      append(value.build)
+    }
+
+    mutating func append(_ values: [ProducerIdentity]) {
+      append(UInt64(values.count))
+      for value in values { append(value) }
+    }
+
+    mutating func append(_ value: ContentDigest?) {
+      guard let value else { return appendPresence(false) }
+      appendPresence(true)
+      append(value.algorithm.rawValue)
+      append(value.hexadecimalValue)
+    }
+
+    mutating func append(_ value: DesignRevisionReference?) {
+      guard let value else { return appendPresence(false) }
+      appendPresence(true)
+      append(value.databaseID.description)
+      append(value.revisionID.description)
+    }
+
+    mutating func append(_ value: ExecutionInvocation?) {
+      guard let value else { return appendPresence(false) }
+      appendPresence(true)
+      append(value.mode.rawValue)
+      append(value.entryPoint)
+      append(value.executable)
+      append(UInt64(value.arguments.count))
+      for argument in value.arguments { append(argument) }
+      append(value.workingDirectory)
+    }
+
+    mutating func append(_ value: ExecutionEnvironmentFingerprint?) {
+      guard let value else { return appendPresence(false) }
+      appendPresence(true)
+      append(value.platform)
+      append(value.architecture)
+      append(value.toolchain)
+      append(value.environmentDigest)
+    }
+
+    mutating func append(_ values: [ArtifactReference]) {
+      append(UInt64(values.count))
+      for value in values {
+        bytes.append(contentsOf: value.id.canonicalBytes)
+        append(value.descriptor.role.rawValue)
+        append(value.descriptor.kind.rawValue)
+        append(value.descriptor.format.rawValue)
+      }
+    }
+
+    private mutating func appendPresence(_ isPresent: Bool) {
+      bytes.append(isPresent ? 1 : 0)
+    }
   }
 }

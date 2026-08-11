@@ -1,4 +1,4 @@
-public struct DesignSchemaRequirement: Sendable, Hashable, Codable {
+public struct DesignSchemaRequirement: Sendable, Hashable {
   public let schemaID: DesignSchemaID
   public let versions: SchemaVersionRange
 

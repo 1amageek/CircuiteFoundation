@@ -1,4 +1,4 @@
-public struct Capacitance: Sendable, Hashable, Codable, Comparable {
+public struct Capacitance: Sendable, Hashable, Comparable {
   public let farads: Double
 
   public var femtofarads: Double { farads * 1e15 }
@@ -23,13 +23,4 @@ public struct Capacitance: Sendable, Hashable, Codable, Comparable {
     lhs.farads < rhs.farads
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    try self.init(farads: container.decode(Double.self))
-  }
-
-  public func encode(to encoder: any Encoder) throws {
-    var container = encoder.singleValueContainer()
-    try container.encode(farads)
-  }
 }

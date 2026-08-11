@@ -1,4 +1,4 @@
-public struct DesignRevisionReference: Sendable, Hashable, Codable {
+public struct DesignRevisionReference: Sendable, Hashable {
   public let databaseID: DesignDatabaseID
   public let revisionID: DesignRevisionID
 

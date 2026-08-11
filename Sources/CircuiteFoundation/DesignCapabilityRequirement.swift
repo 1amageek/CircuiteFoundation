@@ -1,5 +1,5 @@
-public struct DesignCapabilityRequirement: Sendable, Hashable, Codable {
-  public enum Necessity: String, Sendable, Hashable, Codable {
+public struct DesignCapabilityRequirement: Sendable, Hashable {
+  public enum Necessity: String, Sendable, Hashable {
     case required
     case optional
   }

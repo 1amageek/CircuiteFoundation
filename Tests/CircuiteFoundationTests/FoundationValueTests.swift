@@ -1,4 +1,5 @@
 import CircuiteFoundation
+import CircuiteFoundationFoundation
 import Foundation
 import Testing
 
@@ -62,6 +63,47 @@ struct FoundationValueTests {
     #expect(throws: ElectricalQuantityError.self) {
       try Capacitance(farads: .infinity)
     }
+  }
+
+  @Test
+  func capacitanceSerializationAdapterRoundTripsAndRejectsInvalidWireValue() throws {
+    let expected = try Capacitance(picofarads: 2.5)
+    let encoded = try JSONEncoder().encode(expected)
+    let decoded = try JSONDecoder().decode(Capacitance.self, from: encoded)
+
+    #expect(decoded == expected)
+    #expect(throws: DecodingError.self) {
+      try JSONDecoder().decode(
+        Capacitance.self,
+        from: Data("\"not-a-number\"".utf8)
+      )
+    }
+  }
+
+  @Test
+  func scalarSerializationAdaptersPreserveCanonicalValues() throws {
+    let scale = try DatabaseUnitScale(databaseUnitsPerMicrometer: 2.5)
+    let conductance = try Conductance(millisiemens: 3)
+    let inductance = try Inductance(nanohenries: 4)
+
+    #expect(
+      try JSONDecoder().decode(
+        DatabaseUnitScale.self,
+        from: JSONEncoder().encode(scale)
+      ) == scale
+    )
+    #expect(
+      try JSONDecoder().decode(
+        Conductance.self,
+        from: JSONEncoder().encode(conductance)
+      ) == conductance
+    )
+    #expect(
+      try JSONDecoder().decode(
+        Inductance.self,
+        from: JSONEncoder().encode(inductance)
+      ) == inductance
+    )
   }
 
   @Test

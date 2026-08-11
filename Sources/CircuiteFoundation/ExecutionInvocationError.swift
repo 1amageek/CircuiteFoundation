@@ -1,6 +1,4 @@
-import Foundation
-
-public enum ExecutionInvocationError: Error, Sendable, Equatable, LocalizedError {
+public enum ExecutionInvocationError: Error, Sendable, Equatable {
   case missingEntryPoint
   case missingExecutable
   case invalidInProcessFields

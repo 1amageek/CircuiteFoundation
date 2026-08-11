@@ -1,6 +1,4 @@
-import Foundation
-
-public enum HierarchyPathError: Error, Sendable, Equatable, LocalizedError {
+public enum HierarchyPathError: Error, Sendable, Equatable {
   case invalidComponent(String)
 
   public var errorDescription: String? {

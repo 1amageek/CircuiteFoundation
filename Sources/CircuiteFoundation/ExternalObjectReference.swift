@@ -1,6 +1,4 @@
-import Foundation
-
-public struct ExternalObjectReference: Sendable, Hashable, Codable {
+public struct ExternalObjectReference: Sendable, Hashable {
   public let systemID: ExternalSystemID
   public let sourceScopeDigest: ContentDigest
   public let objectKind: String
@@ -20,20 +18,4 @@ public struct ExternalObjectReference: Sendable, Hashable, Codable {
     self.opaqueIdentifier = opaqueIdentifier
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    try self.init(
-      systemID: container.decode(ExternalSystemID.self, forKey: .systemID),
-      sourceScopeDigest: container.decode(ContentDigest.self, forKey: .sourceScopeDigest),
-      objectKind: container.decode(String.self, forKey: .objectKind),
-      opaqueIdentifier: container.decode(String.self, forKey: .opaqueIdentifier)
-    )
-  }
-
-  private enum CodingKeys: String, CodingKey {
-    case systemID
-    case sourceScopeDigest
-    case objectKind
-    case opaqueIdentifier
-  }
 }

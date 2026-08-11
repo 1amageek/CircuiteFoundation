@@ -1,4 +1,4 @@
-public enum DiagnosticSeverity: Int, Sendable, Hashable, Codable, CaseIterable, Comparable {
+public enum DiagnosticSeverity: Int, Sendable, Hashable, CaseIterable, Comparable {
   case information = 0
   case warning = 1
   case error = 2

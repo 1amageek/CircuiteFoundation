@@ -1,25 +1,17 @@
-public struct DesignCapabilitySet: Sendable, Hashable, Codable {
+public struct DesignCapabilitySet: Sendable, Hashable {
   public let descriptors: [DesignCapabilityDescriptor]
 
   public init(
     _ descriptors: [DesignCapabilityDescriptor]
   ) throws(SchemaCompatibilityError) {
-    var identifiers = Set<DesignCapabilityID>()
-    for descriptor in descriptors {
-      guard identifiers.insert(descriptor.capabilityID).inserted else {
-        throw SchemaCompatibilityError.duplicateCapability(descriptor.capabilityID)
-      }
+    let ordered = descriptors.sorted { $0.capabilityID < $1.capabilityID }
+    for index in ordered.indices.dropFirst()
+      where ordered[index - 1].capabilityID == ordered[index].capabilityID {
+      throw SchemaCompatibilityError.duplicateCapability(
+        ordered[index].capabilityID
+      )
     }
-    self.descriptors = descriptors.sorted { $0.capabilityID < $1.capabilityID }
+    self.descriptors = ordered
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    try self.init(container.decode([DesignCapabilityDescriptor].self))
-  }
-
-  public func encode(to encoder: any Encoder) throws {
-    var container = encoder.singleValueContainer()
-    try container.encode(descriptors)
-  }
 }

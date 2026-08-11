@@ -1,3 +1,4 @@
+import CircuiteFoundationFoundation
 import Foundation
 import Testing
 @testable import CircuiteFoundation
@@ -44,6 +45,12 @@ struct InteroperabilityContractTests {
     )
 
     #expect(!report.isSemanticallyComplete)
+    #expect(
+      try JSONDecoder().decode(
+        InteroperabilityReport.self,
+        from: JSONEncoder().encode(report)
+      ) == report
+    )
     #expect(throws: InteroperabilityContractError.self) {
       try report.requireSemanticCompleteness()
     }

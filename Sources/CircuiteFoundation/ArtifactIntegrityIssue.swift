@@ -1,5 +1,5 @@
-public struct ArtifactIntegrityIssue: Sendable, Hashable, Codable {
-  public enum Code: String, Sendable, Hashable, Codable {
+public struct ArtifactIntegrityIssue: Sendable, Hashable {
+  public enum Code: String, Sendable, Hashable {
     case invalidLocation
     case missingFile
     case notRegularFile
@@ -68,5 +68,105 @@ public struct ArtifactIntegrityIssue: Sendable, Hashable, Codable {
     self.expectedDigest = expectedDigest
     self.actualDigest = actualDigest
     self.digestAlgorithm = digestAlgorithm
+  }
+
+  package init(
+    validatingCode code: Code,
+    location: String?,
+    detail: String?,
+    expectedByteCount: UInt64?,
+    actualByteCount: UInt64?,
+    expectedDigest: ContentDigest?,
+    actualDigest: ContentDigest?,
+    digestAlgorithm: ContentDigestAlgorithm?
+  ) throws {
+    guard Self.hasValidPayload(
+      code: code,
+      location: location,
+      detail: detail,
+      expectedByteCount: expectedByteCount,
+      actualByteCount: actualByteCount,
+      expectedDigest: expectedDigest,
+      actualDigest: actualDigest,
+      digestAlgorithm: digestAlgorithm
+    ) else {
+      throw ValidationError.invalidPayload(code)
+    }
+    self.init(
+      code: code,
+      location: location,
+      detail: detail,
+      expectedByteCount: expectedByteCount,
+      actualByteCount: actualByteCount,
+      expectedDigest: expectedDigest,
+      actualDigest: actualDigest,
+      digestAlgorithm: digestAlgorithm
+    )
+  }
+
+  package enum ValidationError: Error {
+    case invalidPayload(Code)
+  }
+
+  private static func hasValidPayload(
+    code: Code,
+    location: String?,
+    detail: String?,
+    expectedByteCount: UInt64?,
+    actualByteCount: UInt64?,
+    expectedDigest: ContentDigest?,
+    actualDigest: ContentDigest?,
+    digestAlgorithm: ContentDigestAlgorithm?
+  ) -> Bool {
+    let hasLocation = location != nil
+    let hasDetail = detail != nil
+    let hasExpectedByteCount = expectedByteCount != nil
+    let hasActualByteCount = actualByteCount != nil
+    let hasExpectedDigest = expectedDigest != nil
+    let hasActualDigest = actualDigest != nil
+    let hasDigestAlgorithm = digestAlgorithm != nil
+
+    switch code {
+    case .invalidLocation, .unreadableFile:
+      return hasDetail
+        && !hasLocation
+        && !hasExpectedByteCount
+        && !hasActualByteCount
+        && !hasExpectedDigest
+        && !hasActualDigest
+        && !hasDigestAlgorithm
+    case .missingFile, .notRegularFile:
+      return hasLocation
+        && !hasDetail
+        && !hasExpectedByteCount
+        && !hasActualByteCount
+        && !hasExpectedDigest
+        && !hasActualDigest
+        && !hasDigestAlgorithm
+    case .byteCountMismatch:
+      return !hasLocation
+        && !hasDetail
+        && hasExpectedByteCount
+        && hasActualByteCount
+        && !hasExpectedDigest
+        && !hasActualDigest
+        && !hasDigestAlgorithm
+    case .digestMismatch:
+      return !hasLocation
+        && !hasDetail
+        && !hasExpectedByteCount
+        && !hasActualByteCount
+        && hasExpectedDigest
+        && hasActualDigest
+        && !hasDigestAlgorithm
+    case .unsupportedDigestAlgorithm:
+      return !hasLocation
+        && !hasDetail
+        && !hasExpectedByteCount
+        && !hasActualByteCount
+        && !hasExpectedDigest
+        && !hasActualDigest
+        && hasDigestAlgorithm
+    }
   }
 }

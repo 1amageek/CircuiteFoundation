@@ -1,11 +1,11 @@
-public struct ContentDigest: Sendable, Hashable, Codable {
+public struct ContentDigest: Sendable, Hashable {
   public let algorithm: ContentDigestAlgorithm
   public let hexadecimalValue: String
 
   public init(
     algorithm: ContentDigestAlgorithm,
     hexadecimalValue: String
-  ) throws {
+  ) throws(ContentDigestError) {
     let normalizedValue = hexadecimalValue.lowercased()
     guard !normalizedValue.isEmpty else {
       throw ContentDigestError.emptyHexadecimalValue
@@ -33,15 +33,4 @@ public struct ContentDigest: Sendable, Hashable, Codable {
       || (byte >= 97 && byte <= 102)
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    let algorithm = try container.decode(ContentDigestAlgorithm.self, forKey: .algorithm)
-    let value = try container.decode(String.self, forKey: .hexadecimalValue)
-    try self.init(algorithm: algorithm, hexadecimalValue: value)
-  }
-
-  private enum CodingKeys: String, CodingKey {
-    case algorithm
-    case hexadecimalValue
-  }
 }

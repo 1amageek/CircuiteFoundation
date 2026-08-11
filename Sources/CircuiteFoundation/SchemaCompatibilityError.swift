@@ -1,6 +1,4 @@
-import Foundation
-
-public enum SchemaCompatibilityError: Error, Sendable, Equatable, LocalizedError {
+public enum SchemaCompatibilityError: Error, Sendable, Equatable {
   case invalidVersionRange(lowerBound: SchemaVersion, upperBound: SchemaVersion)
   case duplicateSchema(DesignSchemaID)
   case duplicateCapability(DesignCapabilityID)

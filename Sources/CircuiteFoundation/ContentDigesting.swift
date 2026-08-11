@@ -1,13 +1,7 @@
-import Foundation
-
 public protocol ContentDigesting: Sendable {
   func digest(
-    data: Data,
-    using algorithm: ContentDigestAlgorithm
-  ) throws -> ContentDigest
-
-  func digest(
-    fileAt url: URL,
-    using algorithm: ContentDigestAlgorithm
-  ) throws -> ContentDigest
+    using algorithm: ContentDigestAlgorithm,
+    limits: ContentDigestSessionLimits,
+    _ body: (borrowing ContentDigestUpdateLease) throws(ContentDigestError) -> Void
+  ) throws(ContentDigestError) -> ContentDigestResult
 }

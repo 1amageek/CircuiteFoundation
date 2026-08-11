@@ -1,4 +1,4 @@
-public struct Inductance: Sendable, Hashable, Codable, Comparable {
+public struct Inductance: Sendable, Hashable, Comparable {
   public let henries: Double
 
   public var nanohenries: Double { henries * 1e9 }
@@ -23,13 +23,4 @@ public struct Inductance: Sendable, Hashable, Codable, Comparable {
     lhs.henries < rhs.henries
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    try self.init(henries: container.decode(Double.self))
-  }
-
-  public func encode(to encoder: any Encoder) throws {
-    var container = encoder.singleValueContainer()
-    try container.encode(henries)
-  }
 }

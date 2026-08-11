@@ -1,4 +1,5 @@
 import CircuiteFoundation
+import CircuiteFoundationFoundation
 import Foundation
 import Testing
 
@@ -9,12 +10,20 @@ struct DesignDatabaseContractTests {
     let database = try DesignDatabaseID(high: 1, low: 2)
     let revision = DesignRevisionID(high: 3, low: 4)
     let entity = try DesignEntityID(rawValue: 5)
+    let occurrence = try DesignRelationOccurrenceID(rawValue: 6)
 
     #expect(database.description == "00000000000000010000000000000002")
     #expect(revision.description == "00000000000000030000000000000004")
     #expect(entity.description == "0000000000000005")
+    #expect(occurrence.description == "0000000000000006")
     #expect(try JSONDecoder().decode(DesignDatabaseID.self, from: JSONEncoder().encode(database)) == database)
     #expect(try JSONDecoder().decode(DesignEntityID.self, from: JSONEncoder().encode(entity)) == entity)
+    #expect(
+      try JSONDecoder().decode(
+        DesignRelationOccurrenceID.self,
+        from: JSONEncoder().encode(occurrence)
+      ) == occurrence
+    )
   }
 
   @Test
@@ -26,7 +35,35 @@ struct DesignDatabaseContractTests {
       try DesignEntityID(rawValue: 0)
     }
     #expect(throws: DesignIdentityError.self) {
+      try DesignRelationOccurrenceID(rawValue: 0)
+    }
+    #expect(throws: DesignIdentityError.self) {
       try DesignDatabaseID(hexadecimalValue: "0000000000000001000000000000000A")
+    }
+  }
+
+  @Test
+  func authorizationSubjectScopeUsesCanonicalNonzeroOpaqueIdentity() throws {
+    let scope = try DesignAuthorizationSubjectScopeID(high: 1, low: 2)
+    let encoded = try JSONEncoder().encode(scope)
+
+    #expect(scope.description == "00000000000000010000000000000002")
+    #expect(
+      try JSONDecoder().decode(
+        DesignAuthorizationSubjectScopeID.self,
+        from: encoded
+      ) == scope
+    )
+
+    for invalid in [
+      "00000000000000000000000000000000",
+      "0000000000000001000000000000000A",
+      "0000000000000001000000000000000g",
+      "0000000000000001000000000000000",
+    ] {
+      #expect(throws: DesignIdentityError.self) {
+        try DesignAuthorizationSubjectScopeID(hexadecimalValue: invalid)
+      }
     }
   }
 
@@ -122,6 +159,81 @@ struct DesignDatabaseContractTests {
     #expect(report.missingRequiredSchemas == [
       DesignSchemaRequirement(schemaID: dependencyID, versions: range)
     ])
+  }
+
+  @Test
+  func compatibilityErrorsPreserveTypedPayloadsAcrossSerialization() throws {
+    let errors: [SchemaCompatibilityError] = [
+      .invalidVersionRange(
+        lowerBound: SchemaVersion(major: 2, minor: 0, patch: 0),
+        upperBound: SchemaVersion(major: 1, minor: 0, patch: 0)
+      ),
+      .duplicateSchema(try DesignSchemaID(rawValue: "lsi.logic")),
+      .duplicateCapability(
+        try DesignCapabilityID(rawValue: "query.spatial")
+      ),
+    ]
+
+    let encoded = try JSONEncoder().encode(errors)
+    #expect(
+      try JSONDecoder().decode(
+        [SchemaCompatibilityError].self,
+        from: encoded
+      ) == errors
+    )
+  }
+
+  @Test
+  func canonicalCompatibilityCollectionsRejectDuplicateIdentifiers() throws {
+    let versions = try SchemaVersionRange(
+      lowerBound: SchemaVersion(major: 1, minor: 0, patch: 0),
+      upperBound: SchemaVersion(major: 2, minor: 0, patch: 0)
+    )
+    let capabilityID = try DesignCapabilityID(rawValue: "query.exact")
+    let capability = DesignCapabilityDescriptor(
+      capabilityID: capabilityID,
+      versions: versions
+    )
+    #expect(
+      throws: SchemaCompatibilityError.duplicateCapability(capabilityID)
+    ) {
+      _ = try DesignCapabilitySet([capability, capability])
+    }
+
+    let schemaID = try DesignSchemaID(rawValue: "lsi.logic")
+    let requirement = DesignSchemaRequirement(
+      schemaID: schemaID,
+      versions: versions
+    )
+    let descriptor = try DesignSchemaDescriptor(
+      schemaID: schemaID,
+      facetID: DesignFacetID(rawValue: "logic"),
+      version: SchemaVersion(major: 1, minor: 0, patch: 0),
+      canonicalDigest: ContentDigest(
+        algorithm: .sha256,
+        hexadecimalValue: String(repeating: "a", count: 64)
+      )
+    )
+    #expect(throws: SchemaCompatibilityError.duplicateSchema(schemaID)) {
+      _ = try DesignSchemaDescriptor(
+        schemaID: try DesignSchemaID(rawValue: "lsi.consumer"),
+        facetID: DesignFacetID(rawValue: "consumer"),
+        version: SchemaVersion(major: 1, minor: 0, patch: 0),
+        canonicalDigest: ContentDigest(
+          algorithm: .sha256,
+          hexadecimalValue: String(repeating: "b", count: 64)
+        ),
+        requiredSchemas: [requirement, requirement]
+      )
+    }
+    #expect(throws: SchemaCompatibilityError.duplicateSchema(schemaID)) {
+      _ = try DesignCompatibilityNegotiator.negotiate(
+        offeredSchemas: [descriptor, descriptor],
+        requiredSchemas: [requirement],
+        offeredCapabilities: try DesignCapabilitySet([capability]),
+        requiredCapabilities: []
+      )
+    }
   }
 
   @Test

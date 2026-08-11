@@ -1,6 +1,4 @@
-import Foundation
-
-public struct HierarchyPath: Sendable, Hashable, Codable, CustomStringConvertible {
+public struct HierarchyPath: Sendable, Hashable, CustomStringConvertible {
   public let components: [String]
 
   public static let root = Self(uncheckedComponents: [])
@@ -11,15 +9,12 @@ public struct HierarchyPath: Sendable, Hashable, Codable, CustomStringConvertibl
 
   public init(components: [String]) throws {
     for component in components {
-      let hasControlCharacter = component.unicodeScalars.contains {
-        CharacterSet.controlCharacters.contains($0)
-      }
       guard !component.isEmpty,
-        component.trimmingCharacters(in: .whitespacesAndNewlines) == component,
+        !TokenValidation.hasBoundaryWhitespace(component),
         component != ".",
         component != "..",
         !component.contains("/"),
-        !hasControlCharacter
+        !TokenValidation.containsControlCharacter(component)
       else {
         throw HierarchyPathError.invalidComponent(component)
       }
@@ -46,13 +41,4 @@ public struct HierarchyPath: Sendable, Hashable, Codable, CustomStringConvertibl
     try Self(components: components + [component])
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    try self.init(try container.decode(String.self))
-  }
-
-  public func encode(to encoder: any Encoder) throws {
-    var container = encoder.singleValueContainer()
-    try container.encode(description)
-  }
 }

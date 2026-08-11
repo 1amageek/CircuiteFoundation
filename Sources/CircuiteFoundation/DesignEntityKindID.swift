@@ -1,4 +1,4 @@
-public struct DesignEntityKindID: Sendable, Hashable, Codable {
+public struct DesignEntityKindID: Sendable, Hashable {
   public let rawValue: String
 
   public init(rawValue: String) throws {
@@ -6,13 +6,4 @@ public struct DesignEntityKindID: Sendable, Hashable, Codable {
     self.rawValue = rawValue
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.singleValueContainer()
-    try self.init(rawValue: container.decode(String.self))
-  }
-
-  public func encode(to encoder: any Encoder) throws {
-    var container = encoder.singleValueContainer()
-    try container.encode(rawValue)
-  }
 }

@@ -1,4 +1,4 @@
-public struct SuggestedAction: Sendable, Hashable, Codable {
+public struct SuggestedAction: Sendable, Hashable {
   public let code: String
   public let summary: String
 

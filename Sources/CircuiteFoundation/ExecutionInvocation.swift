@@ -1,9 +1,7 @@
-import Foundation
-
 /// Describes how an engine execution was invoked without exposing raw
 /// environment variables or process state.
-public struct ExecutionInvocation: Sendable, Hashable, Codable {
-  public enum Mode: String, Sendable, Hashable, Codable {
+public struct ExecutionInvocation: Sendable, Hashable {
+  public enum Mode: String, Sendable, Hashable {
     case inProcess
     case externalProcess
   }
@@ -63,7 +61,7 @@ public struct ExecutionInvocation: Sendable, Hashable, Codable {
         throw ExecutionInvocationError.invalidExternalProcessFields
       }
       for argument in arguments {
-        guard !argument.unicodeScalars.contains(where: CharacterSet.controlCharacters.contains) else {
+        guard !TokenValidation.containsControlCharacter(argument) else {
           throw ExecutionInvocationError.argumentContainsControlCharacter(argument)
         }
       }
@@ -79,22 +77,4 @@ public struct ExecutionInvocation: Sendable, Hashable, Codable {
     self.workingDirectory = workingDirectory
   }
 
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    try self.init(
-      mode: container.decode(Mode.self, forKey: .mode),
-      entryPoint: container.decodeIfPresent(String.self, forKey: .entryPoint),
-      executable: container.decodeIfPresent(String.self, forKey: .executable),
-      arguments: container.decode([String].self, forKey: .arguments),
-      workingDirectory: container.decodeIfPresent(String.self, forKey: .workingDirectory)
-    )
-  }
-
-  private enum CodingKeys: String, CodingKey {
-    case mode
-    case entryPoint
-    case executable
-    case arguments
-    case workingDirectory
-  }
 }

@@ -1,4 +1,4 @@
-public struct SchemaVersionRange: Sendable, Hashable, Codable {
+public struct SchemaVersionRange: Sendable, Hashable {
   public let lowerBound: SchemaVersion
   public let upperBound: SchemaVersion
 
@@ -25,19 +25,6 @@ public struct SchemaVersionRange: Sendable, Hashable, Codable {
     let upper = min(upperBound, other.upperBound)
     guard lower < upper else { return nil }
     return Self(lowerBoundUnchecked: lower, upperBound: upper)
-  }
-
-  public init(from decoder: any Decoder) throws {
-    let container = try decoder.container(keyedBy: CodingKeys.self)
-    try self.init(
-      lowerBound: container.decode(SchemaVersion.self, forKey: .lowerBound),
-      upperBound: container.decode(SchemaVersion.self, forKey: .upperBound)
-    )
-  }
-
-  private enum CodingKeys: String, CodingKey {
-    case lowerBound
-    case upperBound
   }
 
   private init(lowerBoundUnchecked: SchemaVersion, upperBound: SchemaVersion) {

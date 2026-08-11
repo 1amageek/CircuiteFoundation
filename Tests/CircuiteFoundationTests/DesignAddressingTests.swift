@@ -1,4 +1,5 @@
 import CircuiteFoundation
+import CircuiteFoundationFoundation
 import Foundation
 import Testing
 
@@ -50,6 +51,12 @@ struct DesignAddressingTests {
 
     #expect(diagnostic.subject == subject)
     #expect(diagnostic.suggestedActions.first?.code == "inspect-min-delay")
+    #expect(
+      try JSONDecoder().decode(
+        DesignDiagnostic.self,
+        from: JSONEncoder().encode(diagnostic)
+      ) == diagnostic
+    )
   }
 
   @Test

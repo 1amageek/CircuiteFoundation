@@ -1,4 +1,4 @@
-public struct DesignCapabilityDescriptor: Sendable, Hashable, Codable {
+public struct DesignCapabilityDescriptor: Sendable, Hashable {
   public let capabilityID: DesignCapabilityID
   public let versions: SchemaVersionRange
 

@@ -1,6 +1,4 @@
-import Foundation
-
-public enum TokenError: Error, Sendable, Equatable, LocalizedError {
+public enum TokenError: Error, Sendable, Equatable {
   case empty(kind: String)
   case leadingOrTrailingWhitespace(kind: String, value: String)
   case containsControlCharacter(kind: String, value: String)

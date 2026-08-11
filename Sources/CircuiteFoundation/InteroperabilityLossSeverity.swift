@@ -1,4 +1,4 @@
-public enum InteroperabilityLossSeverity: String, Sendable, Hashable, Codable, Comparable {
+public enum InteroperabilityLossSeverity: String, Sendable, Hashable, Comparable {
   case information
   case warning
   case error

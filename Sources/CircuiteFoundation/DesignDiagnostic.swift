@@ -1,4 +1,4 @@
-public struct DesignDiagnostic: Sendable, Hashable, Codable {
+public struct DesignDiagnostic: Sendable, Hashable {
   public let code: DiagnosticCode
   public let severity: DiagnosticSeverity
   public let summary: String

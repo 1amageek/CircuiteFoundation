@@ -1,6 +1,4 @@
-import Foundation
-
-public enum ElectricalQuantityError: Error, Sendable, Equatable, LocalizedError {
+public enum ElectricalQuantityError: Error, Sendable, Equatable {
   case nonFiniteValue(quantity: String, value: Double)
 
   public var errorDescription: String? {

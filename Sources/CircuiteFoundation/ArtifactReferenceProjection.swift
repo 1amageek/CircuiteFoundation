@@ -1,9 +1,6 @@
-/// Stable projections used by domain packages when rendering artifact
-/// diagnostics. These properties do not create a second artifact contract;
-/// the locator and digest remain the canonical representation.
+/// Stable semantic projections used by domain packages when rendering artifact diagnostics.
 public extension ArtifactReference {
-  var path: String { locator.path }
-  var kind: ArtifactKind { locator.kind }
-  var format: ArtifactFormat { locator.format }
-  var artifactID: String { id.rawValue }
+  var kind: ArtifactKind { descriptor.kind }
+  var format: ArtifactFormat { descriptor.format }
+  var artifactID: String { id.description }
 }

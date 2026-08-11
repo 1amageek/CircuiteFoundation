@@ -1,6 +1,4 @@
-import Foundation
-
-public enum DesignIdentityError: Error, Sendable, Equatable, LocalizedError {
+public enum DesignIdentityError: Error, Sendable, Equatable {
   case invalidCanonicalEncoding(kind: String, value: String)
   case zeroIdentity(kind: String)
 

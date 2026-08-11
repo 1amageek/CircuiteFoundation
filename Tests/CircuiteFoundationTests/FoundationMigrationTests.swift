@@ -1,4 +1,5 @@
 import CircuiteFoundation
+import CircuiteFoundationFoundation
 import Foundation
 import Testing
 
@@ -17,35 +18,25 @@ struct FoundationMigrationTests {
   }
 
   @Test
-  func roleParticipatesInDerivedArtifactIdentity() throws {
-    let location = try ArtifactLocation(workspaceRelativePath: "reports/timing.json")
+  func descriptorDoesNotChangeContentIdentity() throws {
     let digest = try ContentDigest(
       algorithm: .sha256,
       hexadecimalValue: String(repeating: "a", count: 64)
     )
 
-    let input = ArtifactReference(
-      locator: ArtifactLocator(
-        location: location,
-        role: .input,
-        kind: .report,
-        format: .json
-      ),
+    let input = try ArtifactReference(
       digest: digest,
-      byteCount: 1
+      byteCount: 1,
+      descriptor: ArtifactDescriptor(role: .input, kind: .report, format: .json)
     )
-    let output = ArtifactReference(
-      locator: ArtifactLocator(
-        location: location,
-        role: .output,
-        kind: .report,
-        format: .json
-      ),
+    let output = try ArtifactReference(
       digest: digest,
-      byteCount: 1
+      byteCount: 1,
+      descriptor: ArtifactDescriptor(role: .output, kind: .report, format: .json)
     )
 
-    #expect(input.id != output.id)
+    #expect(input.id == output.id)
+    #expect(input.descriptor != output.descriptor)
   }
 
   @Test

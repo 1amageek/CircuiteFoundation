@@ -1,6 +1,4 @@
-import Foundation
-
-public enum InteroperabilityContractError: Error, Sendable, Hashable, LocalizedError {
+public enum InteroperabilityContractError: Error, Sendable, Hashable {
   case emptyLossMessage(code: String)
   case emptySourcePath(code: String)
   case invalidBackendPurpose(String)
