@@ -37,6 +37,11 @@ LSI workspace package.
 
 ## Product and Target Separation
 
+The host [FileSystem module design](Sources/CircuiteFoundationFileSystem/DESIGN.md)
+indexes the proposed bounded unknown-identity source discovery contract. That
+extension requires a future exact version and does not change the implemented
+26.812.0 or portable Core capability claims in this document.
+
 The repository keeps shared types and concrete local implementations in the following target layout.
 
 ```text
