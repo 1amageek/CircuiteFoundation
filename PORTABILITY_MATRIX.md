@@ -143,3 +143,22 @@ pinned Embedded runtime; it is not a host fallback.
 
 These results qualify only the stated product/profile behavior. Typed unsupported and
 compile-time-unavailable cells are not functional capability claims.
+
+## Source discovery extension evidence (2026-10-08)
+
+This additive evidence uses `Apple Swift version 6.4 (swift-6.4-RELEASE)`, matching
+`swift-6.4.0-RELEASE_wasm` / `swift-6.4.0-RELEASE_wasm-embedded` SDKs, and Node.js 24.19.0
+WASI Preview 1. It does not replace or generalize the older snapshot-specific rows above.
+
+| Scope | Observed behavior |
+|---|---|
+| Native package | Separate `swift build --build-tests` then `swift test --skip-build`: 91 methods passed |
+| Native FileSystem / SourceDiscovery | 17 focused methods passed with Address Sanitizer and with Thread Sanitizer |
+| Core Native / WASI / Embedded WASM | Existing Core probes compiled/linked and ran with byte-identical canonical output on all three profiles |
+| New FileSystem discovery API | Host-only product; WASI/Embedded filesystem capability is not claimed |
+
+The source discovery extension changes no Core source, product or dependency declaration.
+The Core probes used the exact release SDK identifiers above, individual product builds, and
+Node WASI to execute each raw wasm artifact. Build and execution timeouts were separate.
+The new host security/lifecycle/budget test owner and limitations are recorded in
+[SourceDiscovery design](Sources/CircuiteFoundationFileSystem/SourceDiscovery/DESIGN.md).

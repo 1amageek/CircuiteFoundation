@@ -2,7 +2,7 @@
 
 ## Purpose and Scope
 
-Status: proposed host API for a future CircuiteFoundation version. Parent:
+Status: implemented host API, requiring adoption of this exact commit or a subsequent version. Parent:
 [FileSystem](../DESIGN.md). No children. Own root-contained discovery of unknown
 content and bounded directory inventory. The fixed 26.812.0 API remains unchanged
 and cannot be claimed to provide these operations.
@@ -20,7 +20,7 @@ needed for this host-only operation beyond existing identity/path/budget values.
 | Design | Relationship | Contract Used | Summary | Cautions |
 |---|---|---|---|---|
 | [FileSystem](../DESIGN.md) | parent | Secure descriptor ownership and shutdown | Host implementation | Expected-reference access stays distinct |
-| [PDK LocalCapture](../../../../PDKKit/Sources/PDKSourceCapture/LocalCapture/DESIGN.md) | used by | Proposed ArtifactSourceDiscovering | Candidate input observation | Exact profiles do not discover replacement identities |
+| [PDK LocalCapture](../../../../PDKKit/Sources/PDKSourceCapture/LocalCapture/DESIGN.md) | used by | ArtifactSourceDiscovering | Candidate input observation | Exact profiles do not discover replacement identities |
 | [CoreSpiceIO](../../../../CoreSpice/Sources/CoreSpiceIO/DESIGN.md) | used by | Bounded generic source observation | Caller-owned source input | Grammar/section selection stays outside Foundation |
 
 ## Architecture
@@ -35,7 +35,7 @@ bounded enumeration -> count every visited entry -> root-relative inventory
 
 ## Contracts and Invariants
 
-Proposed API vocabulary:
+Public API vocabulary:
 
 ```swift
 public protocol ArtifactSourceDiscovering: Sendable {
@@ -48,7 +48,7 @@ public protocol ArtifactSourceDiscovering: Sendable {
 
 ArtifactRootCapability conforms using its existing owned root. Discovery intent
 contains root ID, ArtifactRelativePath, ArtifactDescriptor and ArtifactAccessBudget.
-Inventory intent contains explicit root-relative start, finite visited-entry,
+Inventory intent contains explicit root-relative start (nil means the owned root), finite visited-entry,
 depth/result-count limits and work/duration budget. Input type is separate from
 ArtifactAvailability, which already requires known content identity.
 
@@ -95,10 +95,57 @@ boundary ownership/alignment/lifetime checks and run host sanitizers where suppo
 
 ## Verification and Change Impact
 
-Planned focused FileSystem source-discovery tests exercise real root escape and
+Focused FileSystem source-discovery tests exercise real root escape and
 symlink replacement, file growth/truncation, same-length tampering, exact returned
 buffer identity, empty input, byte/page/entry/depth/work limits, close failure,
 cancellation and root-close/open races. Injection covers deterministic failures;
 real descriptor paths prove security. Capture and inventory consumers follow only
 after this contract passes and exact-version adoption is available. Do not report
 new Foundation behavior from old 26.812.0 tests.
+
+## Implementation Accounting and Isolation
+
+`ArtifactRootCapability` serializes discovery/inventory as synchronous actor-isolated operations.
+They have no suspension while descriptors are acquired, consumed, and closed: a queued root close
+cannot destroy the root before cleanup finishes, and closed roots reject new operations. The existing
+active exact-session draining set remains authoritative for asynchronous sessions.
+
+Discovery charges traversal/duplication, metadata, final close, read and hash update units. Pages
+are immutable arrays retained without content copying between read and hash. `withUnsafeBytePages`
+borrows those pages directly; the optional contiguous `withUnsafeBytes` consumer boundary explicitly
+materializes multiple pages. Source size, page count, work and platform indexing are admitted before
+allocation. Inventory counts every `readdir` record (including dot and rejected names), charges name
+validation bytes, metadata, descriptor traversal, EOF probes and merge-sort key bytes/moves. An
+entry-limit failure reports the triggering observed entry and returns no complete inventory.
+Depth zero names the start directory; a directory at the maximum traversal depth fails rather than
+claiming an incomplete recursive inventory. Symlinks are reported, never followed.
+
+| State | Native storage/isolation | WASM / Embedded |
+|---|---|---|
+| Root FD and admission | Existing root actor | FileSystem product unavailable |
+| Source pages | Immutable Sendable arrays | FileSystem product unavailable |
+| Inventory counters/FD cursors | Local value, synchronous actor call | FileSystem product unavailable |
+
+No conditional synchronization/conformance, raw shared mutable state, unchecked Sendable or portable
+Core changes are introduced. Deadline checks use a monotonic clock and reject late success after
+cleanup; they do not preempt blocked filesystem calls.
+
+## Behavioral Evidence
+
+The test owner is [ArtifactSourceDiscoveryTests](../../../Tests/CircuiteFoundationTests/ArtifactSourceDiscoveryTests.swift).
+On Swift 6.4.0 release, macOS arm64, the new suite and existing FileSystem suite passed 17
+methods (the mutation method additionally runs four cases) under ordinary execution, Address
+Sanitizer, and Thread Sanitizer. The full package passed 91 methods. Builds and runtime tests
+are separate processes with outer limits of 180/240 seconds and 60 seconds respectively.
+
+| Contract | Counterexample rejected by the test owner |
+|---|---|
+| FD-01 | Wrong root, escaping path, terminal/intermediate symlink, FIFO |
+| FD-02 | Growth, truncation before read, same-length mutation, symlink replacement, unadmitted byte/page/work capacity, deadline |
+| FD-03 | Root shutdown racing cancellation; retained bytes after root close; primary and close failure preservation |
+| FD-04 | Rejected control-character names and dot records counted; entry/depth/result/work/deadline/cancel errors; deterministic repeated inventory and charged sort |
+
+APFS rejected creating an invalid UTF-8 filename; that filesystem-specific fixture is not claimed
+as runtime evidence. Valid UTF-8 with a Core-rejected control character is exercised through the
+real descriptor enumeration path. Cleanup failure injection tests the shared checked-close
+boundary; real success/failure traversal tests execute Darwin descriptor operations.

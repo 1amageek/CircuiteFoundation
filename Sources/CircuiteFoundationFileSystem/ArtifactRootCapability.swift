@@ -1,7 +1,7 @@
 import CircuiteFoundation
 import Foundation
 
-public actor ArtifactRootCapability: ArtifactAccessing {
+public actor ArtifactRootCapability: ArtifactAccessing, ArtifactSourceDiscovering {
   public nonisolated let rootID: ArtifactRootID
 
   private let digester: any ContentDigesting
@@ -121,6 +121,27 @@ public actor ArtifactRootCapability: ArtifactAccessing {
         await releaseSession(identity)
       }
     )
+  }
+
+  public func discover(
+    _ intent: ArtifactSourceDiscoveryIntent
+  ) async throws(ArtifactSourceDiscoveryError) -> ArtifactDiscoveredSource {
+    guard acceptsNewSessions, let rootDescriptor else { throw .access(.sessionClosed) }
+    guard intent.rootID == rootID else {
+      throw .access(.rootMismatch(expected: rootID, actual: intent.rootID))
+    }
+    // The synchronous operation cannot suspend this actor; close is admitted only after cleanup.
+    return try SourceDiscoveryReader.discover(intent, rootDescriptor: rootDescriptor, digester: digester)
+  }
+
+  public func enumerate(
+    _ intent: ArtifactDirectoryInventoryIntent
+  ) async throws(ArtifactSourceDiscoveryError) -> ArtifactDirectoryInventory {
+    guard acceptsNewSessions, let rootDescriptor else { throw .access(.sessionClosed) }
+    guard intent.rootID == rootID else {
+      throw .access(.rootMismatch(expected: rootID, actual: intent.rootID))
+    }
+    return try SourceDiscoveryInventory.enumerate(intent, rootDescriptor: rootDescriptor)
   }
 
   public func close() -> ArtifactRootCapabilityTermination {
@@ -286,7 +307,7 @@ public actor ArtifactRootCapability: ArtifactAccessing {
     )
   }
 
-  private static func mapFileError(_ error: any Error) -> ArtifactAccessError {
+  static func mapFileError(_ error: any Error) -> ArtifactAccessError {
     switch error {
     case POSIXArtifactFileError.invalidRoot(let reason):
       return .invalidRoot(reason: reason)
@@ -300,6 +321,10 @@ public actor ArtifactRootCapability: ArtifactAccessing {
       return .openFailed(componentIndex: componentIndex, reason: reason)
     case POSIXArtifactFileError.symlinkTraversal(let componentIndex):
       return .symlinkTraversal(componentIndex: componentIndex)
+    case POSIXArtifactFileError.shortRead:
+      return .truncatedResource
+    case POSIXArtifactFileError.cleanupFailed(let primary, let closeReason):
+      return .cleanupFailed(primary: primary, closeReason: closeReason)
     case POSIXArtifactFileError.closeFailed(let reason):
       return .fileCloseFailed(reason: reason)
     default:

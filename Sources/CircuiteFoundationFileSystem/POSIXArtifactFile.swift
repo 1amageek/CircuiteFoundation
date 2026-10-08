@@ -14,7 +14,8 @@ enum POSIXArtifactFile {
     guard fstat(descriptor, &information) == 0,
           (information.st_mode & S_IFMT) == S_IFDIR else {
       let reason = POSIXArtifactFileError.currentReason()
-      _ = Darwin.close(descriptor)
+      do { try close(descriptor) }
+      catch { throw POSIXArtifactFileError.cleanupFailed(primary: reason, closeReason: String(describing: error)) }
       throw POSIXArtifactFileError.invalidRoot(reason)
     }
     return descriptor
@@ -24,7 +25,7 @@ enum POSIXArtifactFile {
     relativePath: ArtifactRelativePath,
     rootDescriptor: Int32
   ) throws -> Int32 {
-    let initialDescriptor = dup(rootDescriptor)
+    let initialDescriptor = fcntl(rootDescriptor, F_DUPFD_CLOEXEC, 0)
     guard initialDescriptor >= 0 else {
       throw POSIXArtifactFileError.openFailed(
         componentIndex: 0,
@@ -35,13 +36,18 @@ enum POSIXArtifactFile {
 
     for (index, component) in relativePath.segments.enumerated() {
       let isFinal = index == relativePath.segments.count - 1
-      let flags = O_RDONLY | O_CLOEXEC | O_NOFOLLOW | (isFinal ? 0 : O_DIRECTORY)
+      let flags = O_RDONLY | O_CLOEXEC | O_NOFOLLOW | (isFinal ? O_NONBLOCK : O_DIRECTORY)
       let nextDescriptor = component.withCString {
         Darwin.openat(currentDescriptor, $0, flags)
       }
       if nextDescriptor < 0 {
         let capturedError = errno
-        _ = Darwin.close(currentDescriptor)
+        let primaryReason = String(cString: strerror(capturedError))
+        do { try close(currentDescriptor) }
+        catch {
+          throw POSIXArtifactFileError.cleanupFailed(primary: primaryReason,
+                                                     closeReason: String(describing: error))
+        }
         if capturedError == ELOOP {
           throw POSIXArtifactFileError.symlinkTraversal(componentIndex: index)
         }
@@ -54,7 +60,11 @@ enum POSIXArtifactFile {
       let closeResult = Darwin.close(currentDescriptor)
       guard closeResult == 0 else {
         let reason = POSIXArtifactFileError.currentReason()
-        _ = Darwin.close(nextDescriptor)
+        do { try close(nextDescriptor) }
+        catch {
+          throw POSIXArtifactFileError.cleanupFailed(primary: reason,
+                                                     closeReason: String(describing: error))
+        }
         throw POSIXArtifactFileError.closeFailed(reason)
       }
       currentDescriptor = nextDescriptor

@@ -3,9 +3,9 @@
 ## Purpose and Scope
 
 Parent: [CircuiteFoundation](../../DESIGN.md). This existing host implementation
-target owns secure root-relative artifact access. Planned child:
+target owns secure root-relative artifact access. Child:
 [SourceDiscovery](SourceDiscovery/DESIGN.md). Its existing exact-reference
-access API is implemented; the child's unknown-identity discovery API is proposed.
+access API is implemented; the child's unknown-identity discovery API is implemented.
 
 ## Responsibilities and Boundaries
 
@@ -19,7 +19,7 @@ budget values remain in Core; local discovery stays in this host product.
 | Design | Relationship | Contract Used | Summary | Cautions |
 |---|---|---|---|---|
 | [Package](../../DESIGN.md) | parent | Artifact identity, access and target separation | Dependency floor | No host API in portable Core |
-| [SourceDiscovery](SourceDiscovery/DESIGN.md) | child | Proposed bounded root discovery | Unknown content acquisition | Requires a new version, not 26.812.0 capability |
+| [SourceDiscovery](SourceDiscovery/DESIGN.md) | child | Bounded root discovery | Unknown content acquisition | Requires a new version, not 26.812.0 capability |
 | [PDK SourceCapture](../../../PDKKit/Sources/PDKSourceCapture/DESIGN.md) | used by | Exact capture and planned candidate acquisition | Domain admission | Discovery is not approved identity |
 | [CoreSpiceIO](../../../CoreSpice/Sources/CoreSpiceIO/DESIGN.md) | used by | Root-relative source acquisition | Independent source consumer | Exact profile resolution has its own authority |
 
@@ -29,7 +29,7 @@ budget values remain in Core; local discovery stays in this host product.
 Core identity/budget + explicit root-relative intent
     -> owned ArtifactRootCapability
         -> exact-reference access (current)
-        -> bounded discovery/enumeration (proposed child)
+        -> bounded discovery/enumeration (SourceDiscovery child)
             -> descriptor-relative file/directory operations -> checked close
 ```
 

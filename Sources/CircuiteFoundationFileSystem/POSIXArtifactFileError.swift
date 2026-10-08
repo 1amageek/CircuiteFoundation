@@ -11,6 +11,7 @@ enum POSIXArtifactFileError: Error {
   case shortRead(expected: Int, actual: Int)
   case offsetOverflow
   case closeFailed(String)
+  case cleanupFailed(primary: String, closeReason: String)
 
   static func currentReason() -> String {
     String(cString: strerror(errno))
