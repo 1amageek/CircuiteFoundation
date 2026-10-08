@@ -35,16 +35,39 @@ bounded enumeration -> count every visited entry -> root-relative inventory
 
 ## Contracts and Invariants
 
-Public API vocabulary:
+Public API vocabulary (PN2.0 cooperative invocation accounting):
 
 ```swift
 public protocol ArtifactSourceDiscovering: Sendable {
     func discover(_ intent: ArtifactSourceDiscoveryIntent)
         async throws(ArtifactSourceDiscoveryError) -> ArtifactDiscoveredSource
+    func discover(_ intent: ArtifactSourceDiscoveryIntent, control: any ArtifactSourceControl)
+        async throws(ArtifactSourceDiscoveryError) -> ArtifactDiscoveredSource
     func enumerate(_ intent: ArtifactDirectoryInventoryIntent)
         async throws(ArtifactSourceDiscoveryError) -> ArtifactDirectoryInventory
+    func enumerate(_ intent: ArtifactDirectoryInventoryIntent, control: any ArtifactSourceControl)
+        async throws(ArtifactSourceDiscoveryError) -> ArtifactDirectoryInventory
 }
+public protocol ArtifactSourceControl: Sendable {
+    func check() throws(ArtifactSourceControlError)
+    func charge(_ work: ArtifactSourceWork) throws(ArtifactSourceControlError)
+    func retain(_ extent: ArtifactSourceExtent)
+        throws(ArtifactSourceControlError) -> any ArtifactSourceRetention
+}
+public protocol ArtifactSourceRetention: Sendable {}
 ```
+
+Control is a trusted synchronous injected owner. It atomically admits the supplied planned work
+before the action; readBytes, hashedBytes, pages, workUnits and visitedEntries are cumulative
+and never refunded. `retain` reserves ownedBytes, temporaryBytes or openResources capacity and
+returns an opaque Sendable lifetime handle; capacity releases only at last shared owner release.
+Its callbacks do not perform filesystem I/O or wait for the root actor and are invoked outside
+any Mutex critical section. Foundation owns neither caller policy nor the control's counters.
+Typed control failures preserve quota resource/limit/attempt, overflow, cancellation, deadline,
+closed owner and unsupported capability, including when descriptor cleanup also fails.
+
+Uncontrolled overloads retain their per-operation finite budgets and make no whole-invocation
+claim. Controlled overloads execute the same descriptor backend with caller admission points.
 
 ArtifactRootCapability conforms using its existing owned root. Discovery intent
 contains root ID, ArtifactRelativePath, ArtifactDescriptor and ArtifactAccessBudget.
@@ -112,8 +135,10 @@ active exact-session draining set remains authoritative for asynchronous session
 
 Discovery charges traversal/duplication, metadata, final close, read and hash update units. Pages
 are immutable arrays retained without content copying between read and hash. `withUnsafeBytePages`
-borrows those pages directly; the optional contiguous `withUnsafeBytes` consumer boundary explicitly
-materializes multiple pages. Source size, page count, work and platform indexing are admitted before
+borrows those pages directly. `ArtifactDiscoveredSource` no longer conforms to the rethrows-only
+`ArtifactOwnedBytes` protocol: `withUnsafeBytes` is throwing and rejects a controlled multi-page
+materialization with a typed capability error. `withAccountedUnsafeBytes` is the explicit throwing
+controlled copy boundary and reserves its temporary extent and copy work before allocation. Source size, page count, work and platform indexing are admitted before
 allocation. Inventory counts every `readdir` record (including dot and rejected names), charges name
 validation bytes, metadata, descriptor traversal, EOF probes and merge-sort key bytes/moves. An
 entry-limit failure reports the triggering observed entry and returns no complete inventory.
@@ -149,3 +174,51 @@ APFS rejected creating an invalid UTF-8 filename; that filesystem-specific fixtu
 as runtime evidence. Valid UTF-8 with a Core-rejected control character is exercised through the
 real descriptor enumeration path. Cleanup failure injection tests the shared checked-close
 boundary; real success/failure traversal tests execute Darwin descriptor operations.
+
+## PN2.0 Admission Points and Managed Extents
+
+| Action | Planned cumulative work before action | Capacity held for actual lifetime |
+|---|---|---|
+| Secure path traversal | Per descriptor acquisition/traversal operation | Every duplicate/open descriptor, including two overlapping traversal descriptors |
+| Read chunk after secure fstat | Exact chunk read bytes, one page and read work | Page payload and page/container managed slots before allocation/growth |
+| Hash update | Actual retained page byte count and hash work | Existing page owner; no second payload |
+| Directory probe | One readdir operation before syscall | Existing directory stream |
+| Nonnil directory record | One visited entry before validation or name/metadata/result growth | Name/path and result managed extents before construction |
+| Sort | Comparison/key-byte/copy work before comparison, join or append | Bounded output/container/key extents before allocation |
+| Explicit contiguous copy | Actual source byte count of copy work | Full temporary source extent through callback |
+
+Directory EOF is charged as probe work only, never as a phantom visited entry. Rejected names
+and dot records consume visitedEntries. Work is admitted per actual planned action, not by
+consuming the entire caller-selected maximum ceiling. Failed actions retain committed planned
+work. A source's immutable shared storage owns page and container retention handles; copied
+source values share that storage, and dropping one copy cannot release retained capacity.
+Inventory entries carry immutable retention handles, so copied inventories, escaped entry arrays,
+and copied entries keep result extents alive. Extracting plain path values is a caller-owned output
+boundary; callers account any independently retained or transformed values. Temporary extents and descriptors release
+on success, cancellation and typed failure; cleanup still runs when control admission rejects.
+
+Managed byte extents count logical payload and declared container/string slots. Each inventory
+entry accounts its complete logical path, including ancestor string bytes even when backing is
+shared. Standard Library capacity rounding, allocator metadata, opaque directory stream buffers,
+and host/runtime overhead are separate from this declared extent contract; it is not a process-RSS
+bound. Checked overflow precedes cost construction, reservation and container growth.
+Root construction belongs to composition; controlled traversal resources belong to this owner.
+
+PN2.0 verification on Swift 6.4.0 release, macOS 27.0.1 arm64 passed all 95 native methods.
+The SourceDiscovery and existing FileSystem suites passed 21 methods each under ASan and TSan;
+the mutation method runs four cases. Builds were separate from runtime (180/240-second build
+limits and 60-second runtime limits). TSan emitted its dyld module-map/backtrace warning and
+reported no race failure; this qualification does not remove that diagnostic limitation.
+
+| Invocation contract | Executed counterexample/proof |
+|---|---|
+| Cumulative admission | Two 4-byte sources consume exactly one shared 8-byte read quota; a ninth byte is refused before digest creation and payload reservation |
+| Pre-action refusal | A 4-byte first chunk under a 2-byte read quota reaches neither digest nor owned payload; overlapping descriptor limit closes the earlier descriptor |
+| Managed ownership | Source copies keep owned extents until the last copy; escaped inventory entry arrays keep result extents; created/released lease counts match |
+| Copy boundary | Multi-page unaccounted copy fails; admitted copy holds 8 temporary bytes through callback and releases after normal return or throw; 7-byte capacity refuses callback entry |
+| Typed failure/cleanup | Cancellation, deadline, closed control and hash quota failures preserve typed reasons and release extents; injected close failure retains typed cancellation as primary |
+| Inventory | Two names plus two dot records consume four visits, without EOF visit; name/result/sort refusal cleans all resources; cancellation occurs with a live directory stream |
+
+Evidence: `../../../../.verification/runs/pdk-source-foundation/pn20-evidence.json` and its
+referenced build/runtime logs. Prior standalone Native/ASan/TSan/Core portability evidence
+keeps its original scope; no new WASM or Embedded FileSystem capability is claimed.

@@ -4,24 +4,27 @@ struct SourceDiscoveryReader {
   static func discover(
     _ intent: ArtifactSourceDiscoveryIntent,
     rootDescriptor: Int32,
-    digester: any ContentDigesting
+    digester: any ContentDigesting,
+    control: (any ArtifactSourceControl)? = nil
   ) throws(ArtifactSourceDiscoveryError) -> ArtifactDiscoveredSource {
     let accounting = SourceDiscoveryAccounting(
-      maximumDurationNanoseconds: intent.budget.maximumDurationNanoseconds
+      maximumDurationNanoseconds: intent.budget.maximumDurationNanoseconds, control: control
     )
     try accounting.check()
     let fixedWork = UInt64(intent.relativePath.segments.count) + 4
     guard fixedWork <= intent.budget.maximumWorkUnitCount else {
       throw .access(.workLimitExceeded(limit: intent.budget.maximumWorkUnitCount, requested: fixedWork))
     }
-    let descriptor: Int32
+    let opened: SourceDiscoveryDescriptor
     do {
-      descriptor = try POSIXArtifactFile.openFile(
-        relativePath: intent.relativePath, rootDescriptor: rootDescriptor
+      opened = try POSIXArtifactFile.openRetainedFile(
+        relativePath: intent.relativePath, rootDescriptor: rootDescriptor, accounting: accounting
       )
-    } catch { throw .access(ArtifactRootCapability.mapFileError(error)) }
-    let source = try SourceDiscoveryAccounting.closing(descriptor) { () throws(ArtifactSourceDiscoveryError) in
-      try observe(intent, descriptor: descriptor, digester: digester, accounting: accounting)
+    } catch let error as ArtifactSourceDiscoveryError { throw error }
+    catch { throw .access(ArtifactRootCapability.mapFileError(error)) }
+    let source = try SourceDiscoveryAccounting.closing(opened.descriptor, retention: opened.retention) {
+      () throws(ArtifactSourceDiscoveryError) in
+      try observe(intent, descriptor: opened.descriptor, digester: digester, accounting: accounting)
     }
     try accounting.check()
     return source.recordingElapsed(accounting.elapsedNanoseconds)
@@ -33,6 +36,7 @@ struct SourceDiscoveryReader {
     digester: any ContentDigesting,
     accounting: SourceDiscoveryAccounting
   ) throws(ArtifactSourceDiscoveryError) -> ArtifactDiscoveredSource {
+    try accounting.charge(.init(workUnits: 1))
     let initial: POSIXArtifactFileSnapshot
     do { initial = try POSIXArtifactFileSnapshot(fileDescriptor: descriptor) }
     catch { throw .access(ArtifactRootCapability.mapFileError(error)) }
@@ -59,7 +63,24 @@ struct SourceDiscoveryReader {
                                       requested: totalWork.overflow ? .max : totalWork.partialValue))
     }
     try accounting.check()
+    let firstCount = min(chunkSize, initial.byteCount)
+    var retentions: [any ArtifactSourceRetention] = []
+    if firstCount > 0 {
+      // Admit the exact first chunk before even constructing the digest backend.
+      try accounting.charge(.init(readBytes: firstCount, pages: 1, workUnits: 1))
+      let firstPayload = try accounting.retain(.ownedBytes(firstCount))
+      let stride = MemoryLayout<[UInt8]>.stride + MemoryLayout<any ArtifactSourceRetention>.stride
+      let pageSlots = try SourceDiscoveryAccounting.byteExtent(pageCount, stride: stride, resource: .ownedBytes)
+      let slots = try SourceDiscoveryAccounting.sum(pageSlots,
+        UInt64(MemoryLayout<any ArtifactSourceRetention>.stride), resource: .ownedBytes)
+      let container = try accounting.retain(.ownedBytes(slots))
+      guard pageCount < UInt64(Int.max) else { throw .control(.arithmeticOverflow(resource: .ownedBytes)) }
+      retentions.reserveCapacity(Int(pageCount) + 1)
+      if let container { retentions.append(container) }
+      if let firstPayload { retentions.append(firstPayload) }
+    }
     var pages: [[UInt8]] = []
+    if pageCount > 0 { pages.reserveCapacity(Int(pageCount)) }
     let limits: ContentDigestSessionLimits
     do {
       limits = try ContentDigestSessionLimits(maximumChunkByteCount: chunkSize,
@@ -77,6 +98,14 @@ struct SourceDiscoveryReader {
             primary = error; throw .backendUpdateFailed(reason: String(describing: error))
           } catch { throw .backendUpdateFailed(reason: String(describing: error)) }
           let count = min(chunkSize, initial.byteCount - observedByteCount)
+          if observedByteCount > 0 {
+            do {
+              try accounting.charge(.init(readBytes: count, pages: 1, workUnits: 1))
+              if let retention = try accounting.retain(.ownedBytes(count)) { retentions.append(retention) }
+            } catch let error as ArtifactSourceDiscoveryError {
+              primary = error; throw .backendUpdateFailed(reason: String(describing: error))
+            } catch { throw .backendUpdateFailed(reason: String(describing: error)) }
+          }
           let bytes: [UInt8]
           do { bytes = try POSIXArtifactFile.read(fileDescriptor: descriptor,
                                                 offset: observedByteCount, byteCount: Int(count)) }
@@ -84,6 +113,10 @@ struct SourceDiscoveryReader {
             primary = .access(ArtifactRootCapability.mapFileError(error))
             throw .backendUpdateFailed(reason: String(describing: error))
           }
+          do { try accounting.charge(.init(hashedBytes: UInt64(bytes.count), workUnits: 1)) }
+          catch let error as ArtifactSourceDiscoveryError {
+            primary = error; throw .backendUpdateFailed(reason: String(describing: error))
+          } catch { throw .backendUpdateFailed(reason: String(describing: error)) }
           try lease.update(bytes)
           pages.append(bytes)
           observedByteCount += count
@@ -103,6 +136,7 @@ struct SourceDiscoveryReader {
           result.digest.algorithm == .sha256 else {
       throw .access(.readFailed(reason: "Digest accounting differs from observed source bytes."))
     }
+    try accounting.charge(.init(workUnits: 1))
     let final: POSIXArtifactFileSnapshot
     do { final = try POSIXArtifactFileSnapshot(fileDescriptor: descriptor) }
     catch { throw .access(ArtifactRootCapability.mapFileError(error)) }
@@ -115,6 +149,7 @@ struct SourceDiscoveryReader {
     } catch { throw .access(.readFailed(reason: String(describing: error))) }
     return ArtifactDiscoveredSource(reference: reference, pages: pages,
       work: ArtifactAccessWorkReport(pageCount: pageCount, workUnitCount: totalWork.partialValue,
-                                     elapsedNanoseconds: accounting.elapsedNanoseconds))
+                                     elapsedNanoseconds: accounting.elapsedNanoseconds),
+      retentions: retentions, control: accounting.control)
   }
 }

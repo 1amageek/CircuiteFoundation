@@ -44,7 +44,11 @@ not relax the expected-reference access path or authenticate observed bytes.
 
 Root actors own descriptors and session admission/draining. SourceDiscovery uses
 the same shutdown owner rather than independent root/session bookkeeping.
-Returned immutable source owners outlive the closed file descriptor.
+Returned immutable source owners outlive the closed file descriptor. The SourceDiscovery
+child owns PN2.0 controlled overloads: external synchronous control gates work before action,
+and opaque leases stay with managed source/inventory storage. Root construction remains
+composition-owned; every internal traversal descriptor is retained before acquisition.
+Standalone per-operation budgets do not establish whole-invocation resource admission.
 
 ## Failure, Concurrency, and Constraints
 

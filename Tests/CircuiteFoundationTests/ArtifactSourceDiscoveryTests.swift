@@ -25,13 +25,13 @@ struct ArtifactSourceDiscoveryTests {
     #expect(source.byteCount == UInt64(bytes.count))
     #expect(source.work.pageCount == 7)
     #expect(source.work.workUnitCount == 19)
-    #expect(source.withUnsafeBytes { Array($0) } == Array(bytes))
+    #expect(try source.withUnsafeBytes { Array($0) } == Array(bytes))
     var pages: [UInt8] = []
     source.withUnsafeBytePages { pages.append(contentsOf: $0) }
     #expect(pages == Array(bytes))
     #expect(empty.reference.digest == (try SHA256ContentDigester().digest(data: Data())))
     #expect(empty.byteCount == 0)
-    #expect(empty.withUnsafeBytes { $0.isEmpty })
+    #expect(try empty.withUnsafeBytes { $0.isEmpty })
     await #expect(throws: ArtifactSourceDiscoveryError.access(.sessionClosed)) {
       _ = try await root.discover(discovery("input"))
     }
@@ -262,6 +262,171 @@ struct ArtifactSourceDiscoveryTests {
         () throws(ArtifactSourceDiscoveryError) in ()
       }
     }
+    if #available(macOS 15.0, *) {
+      let control = DiscoveryTestControl()
+      let cancelled = ArtifactSourceDiscoveryError.control(.cancelled)
+      func closeWithLease() throws {
+        let lease = try control.retain(.openResources(1))
+        try SourceDiscoveryAccounting.closing(0, close: { _ in throw TestCloseError.close }, retention: lease) {
+          () throws(ArtifactSourceDiscoveryError) in throw cancelled
+        }
+      }
+      #expect(throws: ArtifactSourceDiscoveryError.cleanupFailed(primary: cancelled, closeReason: "close")) {
+        try closeWithLease()
+      }
+      #expect(control.used(.openResources) == 0)
+      #expect(control.leaseCounts.created == control.leaseCounts.released)
+    }
+  }
+
+  @available(macOS 15.0, *)
+  @Test
+  func sharedReadQuotaAdmitsTwoSmallSourcesAndRefusesNinthByteBeforeDigestOrAllocation() async throws {
+    let directory = try temporaryDirectory()
+    defer { remove(directory) }
+    try Data("1234".utf8).write(to: directory.appendingPathComponent("a"))
+    try Data("5678".utf8).write(to: directory.appendingPathComponent("b"))
+    try Data("9".utf8).write(to: directory.appendingPathComponent("c"))
+    let control = DiscoveryTestControl(limits: [.readBytes: 8])
+    let root = try makeRoot(directory)
+    let first = try await root.discover(discovery("a"), control: control)
+    let second = try await root.discover(discovery("b"), control: control)
+    #expect(try first.withAccountedUnsafeBytes { Array($0) } == Array("1234".utf8))
+    #expect(try second.withAccountedUnsafeBytes { Array($0) } == Array("5678".utf8))
+    #expect(control.used(.readBytes) == 8)
+    #expect(control.used(.hashedBytes) == 8)
+    #expect(control.used(.pages) == 2)
+    let owned = control.used(.ownedBytes)
+    let refusingRoot = try makeRoot(directory, digester: RejectingDigester())
+    await #expect(throws: ArtifactSourceDiscoveryError.control(
+      .quotaExceeded(resource: .readBytes, limit: 8, attempted: 9))) {
+      _ = try await refusingRoot.discover(discovery("c"), control: control)
+    }
+    #expect(control.used(.ownedBytes) == owned)
+    #expect(control.used(.hashedBytes) == 8)
+    #expect(control.used(.openResources) == 0)
+    try await refusingRoot.close().wait()
+    try await root.close().wait()
+    withExtendedLifetime((first, second)) {}
+  }
+
+  @available(macOS 15.0, *)
+  @Test
+  func rejectedFirstChunkDoesNotReservePayloadAndOwnersReleaseOnlyAtLastCopy() async throws {
+    let directory = try temporaryDirectory()
+    defer { remove(directory) }
+    try Data("12345678".utf8).write(to: directory.appendingPathComponent("input"))
+    let refusing = DiscoveryTestControl(limits: [.readBytes: 2])
+    let refusingRoot = try makeRoot(directory, digester: RejectingDigester())
+    await #expect(throws: ArtifactSourceDiscoveryError.control(
+      .quotaExceeded(resource: .readBytes, limit: 2, attempted: 4))) {
+      _ = try await refusingRoot.discover(discovery("input"), control: refusing)
+    }
+    #expect(refusing.peak(.ownedBytes) == 0)
+    #expect(refusing.used(.openResources) == 0)
+    try await refusingRoot.close().wait()
+    let control = DiscoveryTestControl()
+    let root = try makeRoot(directory)
+    var source: ArtifactDiscoveredSource? = try await root.discover(discovery("input"), control: control)
+    var copy = source
+    let retained = control.used(.ownedBytes)
+    #expect(retained > 8)
+    source = nil
+    #expect(control.used(.ownedBytes) == retained)
+    #expect(try copy!.withAccountedUnsafeBytes { Array($0) } == Array("12345678".utf8))
+    #expect(control.used(.temporaryBytes) == 0)
+    #expect(control.peak(.temporaryBytes) == 8)
+    #expect(throws: ArtifactSourceDiscoveryError.self) { try copy!.withUnsafeBytes { _ in () } }
+    #expect(throws: TestCloseError.close) {
+      try copy!.withAccountedUnsafeBytes { _ in throw TestCloseError.close }
+    }
+    #expect(control.used(.temporaryBytes) == 0)
+    copy = nil
+    #expect(control.used(.ownedBytes) == 0)
+    #expect(control.leaseCounts.created == control.leaseCounts.released)
+    try await root.close().wait()
+  }
+
+  @available(macOS 15.0, *)
+  @Test
+  func controlFailuresDuringOpenHashAndCopyPreserveTypedErrorsAndReleaseExtents() async throws {
+    let directory = try temporaryDirectory()
+    defer { remove(directory) }
+    try Data("12345678".utf8).write(to: directory.appendingPathComponent("input"))
+    let root = try makeRoot(directory)
+    for failure in [ArtifactSourceControlError.cancelled, .deadlineExceeded, .closed] {
+      let control = DiscoveryTestControl(failure: failure, failAfterCharges: 2)
+      await #expect(throws: ArtifactSourceDiscoveryError.control(failure)) {
+        _ = try await root.discover(discovery("input"), control: control)
+      }
+      #expect(control.used(.openResources) == 0)
+      #expect(control.used(.ownedBytes) == 0)
+    }
+    let descriptorLimit = DiscoveryTestControl(limits: [.openResources: 1])
+    await #expect(throws: ArtifactSourceDiscoveryError.control(
+      .quotaExceeded(resource: .openResources, limit: 1, attempted: 2))) {
+      _ = try await root.discover(discovery("input"), control: descriptorLimit)
+    }
+    #expect(descriptorLimit.used(.openResources) == 0)
+    let hashLimit = DiscoveryTestControl(limits: [.hashedBytes: 3])
+    await #expect(throws: ArtifactSourceDiscoveryError.control(
+      .quotaExceeded(resource: .hashedBytes, limit: 3, attempted: 4))) {
+      _ = try await root.discover(discovery("input"), control: hashLimit)
+    }
+    #expect(hashLimit.used(.readBytes) == 4)
+    #expect(hashLimit.used(.ownedBytes) == 0)
+    #expect(hashLimit.used(.openResources) == 0)
+    let copyLimit = DiscoveryTestControl(limits: [.temporaryBytes: 7])
+    let source = try await root.discover(discovery("input"), control: copyLimit)
+    var entered = false
+    #expect(throws: ArtifactSourceDiscoveryError.control(
+      .quotaExceeded(resource: .temporaryBytes, limit: 7, attempted: 8))) {
+      try source.withAccountedUnsafeBytes { _ in entered = true }
+    }
+    #expect(!entered)
+    #expect(copyLimit.used(.temporaryBytes) == 0)
+    try await root.close().wait()
+  }
+
+  @available(macOS 15.0, *)
+  @Test
+  func controlledInventoryChargesRealEntriesAndRetainsEscapedResultCopies() async throws {
+    let directory = try temporaryDirectory()
+    defer { remove(directory) }
+    try Data().write(to: directory.appendingPathComponent("z"))
+    try Data().write(to: directory.appendingPathComponent("a"))
+    let root = try makeRoot(directory)
+    let control = DiscoveryTestControl()
+    var inventory: ArtifactDirectoryInventory? = try await root.enumerate(self.inventory(), control: control)
+    #expect(control.used(.visitedEntries) == inventory!.progress.visitedEntryCount)
+    #expect(control.used(.visitedEntries) == 4) // Two names and two dot records, no EOF entry.
+    #expect(control.used(.temporaryBytes) == 0)
+    #expect(control.peak(.temporaryBytes) > 0)
+    #expect(control.used(.openResources) == 0)
+    var copy: [ArtifactDirectoryEntry]? = inventory!.entries
+    let owned = control.used(.ownedBytes)
+    inventory = nil
+    #expect(control.used(.ownedBytes) == owned)
+    #expect(copy!.map { $0.relativePath.stringValue } == ["a", "z"])
+    copy = nil
+    #expect(control.used(.ownedBytes) == 0)
+    #expect(control.leaseCounts.created == control.leaseCounts.released)
+    for limits in [[ArtifactSourceResource.visitedEntries: UInt64(1)], [.ownedBytes: 0], [.temporaryBytes: 10]] {
+      let failing = DiscoveryTestControl(limits: limits)
+      await #expect(throws: ArtifactSourceDiscoveryError.self) {
+        _ = try await root.enumerate(self.inventory(), control: failing)
+      }
+      #expect(failing.used(.ownedBytes) == 0)
+      #expect(failing.used(.temporaryBytes) == 0)
+      #expect(failing.used(.openResources) == 0)
+    }
+    let cancelled = DiscoveryTestControl(failure: .cancelled, failAfterCharges: 3)
+    await #expect(throws: ArtifactSourceDiscoveryError.control(.cancelled)) {
+      _ = try await root.enumerate(self.inventory(), control: cancelled)
+    }
+    #expect(cancelled.peak(.openResources) == 1)
+    #expect(cancelled.used(.openResources) == 0)
+    try await root.close().wait()
   }
 
   enum Mutation: Sendable { case grow, truncate, sameLength, symlink }
@@ -370,4 +535,94 @@ private struct BeforeReadDigester: ContentDigesting {
     }
     return try SHA256ContentDigester().digest(using: algorithm, limits: limits, body)
   }
+}
+
+@available(macOS 15.0, *)
+private final class DiscoveryTestControl: ArtifactSourceControl {
+  private struct State {
+    var used: [ArtifactSourceResource: UInt64] = [:]
+    var peaks: [ArtifactSourceResource: UInt64] = [:]
+    var charges = 0
+    var created = 0
+    var released = 0
+  }
+  private let state = Mutex(State())
+  private let limits: [ArtifactSourceResource: UInt64]
+  private let failure: ArtifactSourceControlError?
+  private let failAfterCharges: Int
+
+  init(limits: [ArtifactSourceResource: UInt64] = [:], failure: ArtifactSourceControlError? = nil,
+       failAfterCharges: Int = .max) {
+    self.limits = limits
+    self.failure = failure
+    self.failAfterCharges = failAfterCharges
+  }
+
+  func used(_ resource: ArtifactSourceResource) -> UInt64 { state.withLock { $0.used[resource, default: 0] } }
+  func peak(_ resource: ArtifactSourceResource) -> UInt64 { state.withLock { $0.peaks[resource, default: 0] } }
+  var leaseCounts: (created: Int, released: Int) { state.withLock { ($0.created, $0.released) } }
+
+  func check() throws(ArtifactSourceControlError) {
+    if let failure, state.withLock({ $0.charges >= failAfterCharges }) { throw failure }
+  }
+
+  func charge(_ work: ArtifactSourceWork) throws(ArtifactSourceControlError) {
+    try check()
+    let changes: [(ArtifactSourceResource, UInt64)] = [(.readBytes, work.readBytes),
+      (.hashedBytes, work.hashedBytes), (.pages, work.pages), (.workUnits, work.workUnits),
+      (.visitedEntries, work.visitedEntries)]
+    try state.withLock { (value: inout State) throws(ArtifactSourceControlError) in
+      for (resource, amount) in changes { try admit(resource, amount, value: value) }
+      for (resource, amount) in changes { value.used[resource, default: 0] += amount }
+      value.charges += 1
+    }
+  }
+
+  func retain(_ extent: ArtifactSourceExtent) throws(ArtifactSourceControlError) -> any ArtifactSourceRetention {
+    try check()
+    let resource: ArtifactSourceResource
+    let amount: UInt64
+    switch extent {
+    case .ownedBytes(let count): resource = .ownedBytes; amount = count
+    case .temporaryBytes(let count): resource = .temporaryBytes; amount = count
+    case .openResources(let count): resource = .openResources; amount = count
+    }
+    try state.withLock { (value: inout State) throws(ArtifactSourceControlError) in
+      try admit(resource, amount, value: value)
+      value.used[resource, default: 0] += amount
+      value.peaks[resource] = max(value.peaks[resource, default: 0], value.used[resource, default: 0])
+      value.created += 1
+    }
+    return DiscoveryTestRetention(owner: self, resource: resource, amount: amount)
+  }
+
+  private func admit(_ resource: ArtifactSourceResource, _ amount: UInt64, value: State)
+    throws(ArtifactSourceControlError) {
+    let total = value.used[resource, default: 0].addingReportingOverflow(amount)
+    guard !total.overflow else { throw .arithmeticOverflow(resource: resource) }
+    let limit = limits[resource, default: .max]
+    guard total.partialValue <= limit else {
+      throw .quotaExceeded(resource: resource, limit: limit, attempted: total.partialValue)
+    }
+  }
+
+  func release(_ resource: ArtifactSourceResource, amount: UInt64) {
+    state.withLock {
+      $0.used[resource, default: 0] -= amount
+      $0.released += 1
+    }
+  }
+}
+
+@available(macOS 15.0, *)
+private final class DiscoveryTestRetention: ArtifactSourceRetention {
+  let owner: DiscoveryTestControl
+  let resource: ArtifactSourceResource
+  let amount: UInt64
+  init(owner: DiscoveryTestControl, resource: ArtifactSourceResource, amount: UInt64) {
+    self.owner = owner
+    self.resource = resource
+    self.amount = amount
+  }
+  deinit { owner.release(resource, amount: amount) }
 }

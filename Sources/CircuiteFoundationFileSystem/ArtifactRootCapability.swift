@@ -126,22 +126,43 @@ public actor ArtifactRootCapability: ArtifactAccessing, ArtifactSourceDiscoverin
   public func discover(
     _ intent: ArtifactSourceDiscoveryIntent
   ) async throws(ArtifactSourceDiscoveryError) -> ArtifactDiscoveredSource {
-    guard acceptsNewSessions, let rootDescriptor else { throw .access(.sessionClosed) }
-    guard intent.rootID == rootID else {
-      throw .access(.rootMismatch(expected: rootID, actual: intent.rootID))
-    }
-    // The synchronous operation cannot suspend this actor; close is admitted only after cleanup.
+    try validateDiscoveryRoot(intent.rootID)
+    guard let rootDescriptor else { throw .access(.sessionClosed) }
     return try SourceDiscoveryReader.discover(intent, rootDescriptor: rootDescriptor, digester: digester)
+  }
+
+  public func discover(
+    _ intent: ArtifactSourceDiscoveryIntent, control: any ArtifactSourceControl
+  ) async throws(ArtifactSourceDiscoveryError) -> ArtifactDiscoveredSource {
+    try validateDiscoveryRoot(intent.rootID)
+    guard let rootDescriptor else { throw .access(.sessionClosed) }
+    // No suspension can interleave shutdown before checked cleanup.
+    return try SourceDiscoveryReader.discover(intent, rootDescriptor: rootDescriptor,
+                                             digester: digester, control: control)
   }
 
   public func enumerate(
     _ intent: ArtifactDirectoryInventoryIntent
   ) async throws(ArtifactSourceDiscoveryError) -> ArtifactDirectoryInventory {
-    guard acceptsNewSessions, let rootDescriptor else { throw .access(.sessionClosed) }
-    guard intent.rootID == rootID else {
-      throw .access(.rootMismatch(expected: rootID, actual: intent.rootID))
-    }
+    try validateDiscoveryRoot(intent.rootID)
+    guard let rootDescriptor else { throw .access(.sessionClosed) }
     return try SourceDiscoveryInventory.enumerate(intent, rootDescriptor: rootDescriptor)
+  }
+
+  public func enumerate(
+    _ intent: ArtifactDirectoryInventoryIntent, control: any ArtifactSourceControl
+  ) async throws(ArtifactSourceDiscoveryError) -> ArtifactDirectoryInventory {
+    try validateDiscoveryRoot(intent.rootID)
+    guard let rootDescriptor else { throw .access(.sessionClosed) }
+    return try SourceDiscoveryInventory.enumerate(intent, rootDescriptor: rootDescriptor, control: control)
+  }
+
+  private func validateDiscoveryRoot(_ selectedRoot: ArtifactRootID)
+    throws(ArtifactSourceDiscoveryError) {
+    guard acceptsNewSessions, rootDescriptor != nil else { throw .access(.sessionClosed) }
+    guard selectedRoot == rootID else {
+      throw .access(.rootMismatch(expected: rootID, actual: selectedRoot))
+    }
   }
 
   public func close() -> ArtifactRootCapabilityTermination {

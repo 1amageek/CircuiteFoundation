@@ -1,6 +1,7 @@
 import CircuiteFoundation
 
 public indirect enum ArtifactSourceDiscoveryError: Error, Sendable, Equatable {
+  case control(ArtifactSourceControlError)
   case access(ArtifactAccessError)
   case digest(ContentDigestError)
   case digestAbortFailed(primary: ArtifactSourceDiscoveryError, abort: ContentDigestError)
