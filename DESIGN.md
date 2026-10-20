@@ -379,8 +379,8 @@ The breaking revision contract replaces one ambiguous `designRevision: ContentDi
 The revision manifest owns the database state digest. A raw digest is not accepted where a scoped revision
 reference is required.
 
-`EvidenceManifest` remains a value. Content-derived ID construction and canonical hashing belong to the Crypto
-implementation product so that the Core target does not import a crypto implementation.
+`EvidenceManifest` remains a value. Its existing Core factory owns canonical framing and invokes an injected
+`ContentDigesting`; the Crypto implementation owns SHA-256. Core imports no crypto implementation.
 
 ## Diagnostics
 
@@ -460,3 +460,63 @@ maps stable identities to revision-scoped compact handles and borrowed column vi
 
 There is no compatibility shim. Consumer packages migrate in one coordinated breaking change and tests must prove
 success, invalid-input, unavailable-resource, and incompatible-schema behavior.
+
+## Managed Evidence and Digest Construction Costs
+
+This additive owner seam exposes scalar costs for the existing canonicalization,
+SHA-256 and optional Foundation Data adapter. Existing factory/session APIs,
+encoding order, digest bytes and failure behavior remain unchanged. It adds no
+accountant, ledger, policy or generic execution framework.
+
+| Owner / callable | Guarantee |
+|---|---|
+| Core `EvidenceManifest.canonicalizationCost(..., checkpoint:)` | Exact canonical byte count; checked temporary payload bound; later construction work; zero newly allocated variable result backing |
+| Crypto `SHA256ContentDigester.managedCost(byteCount:)` | Fixed implementation's temporary buffer/state payload, returned 64-byte hexadecimal backing, later hash/finalization work |
+| Foundation `ContentDigesting.foundationDataCopyCost(byteCount:)` | Existing adapter's N-byte `[UInt8](Data)` copy and copy work, excluding the injected digester |
+
+All functions return scalar UInt64 tuples. The canonical estimator invokes its
+caller checkpoint BEFORE reading each collection element or streaming UTF-8 byte;
+that callback charges only planning work and preserves its original thrown cause.
+No Array/String/ArtifactID encoding buffer is materialized by estimation. Decimal
+schema lengths use integer division; fixed identity descriptions use their known
+32-byte format. Checked add/multiply and Int representability fail with existing
+`ContentDigestError.byteCountOverflow`. Returned workUnits charges the subsequent
+original construction, not this already-charged planning traversal. Work units count
+logical byte copies/appends and explicit source loop iterations separately; they
+do not estimate CPU instructions or runtime latency.
+
+```text
+same invocation -> estimator checkpoint/charge -> scalar cost
+  -> reserve operation scratch + charge subsequent construction work
+  -> EXISTING factory/digest -> release scratch
+  -> retain any returned digest backing and original input owner leases
+```
+
+The byte accounting covers logical buffer payload and explicit fixed owner fields,
+not allocator rounding/object headers, private Swift String formatting/transcoding
+workspace, CryptoKit/Swift-Crypto internal hasher allocation, process RSS or arbitrary
+injected backend allocation. The pinned Swift 6.4 Array growth policy bounds
+simultaneous replaced/replacement UInt8 buffers by four times final logical count;
+fixed `reserveCapacity` and collection-copy buffers use their known logical count.
+This is a source-derived collection bound, not a multiplier on serialized input.
+
+Canonical scratch includes writer growth; the largest per-string UTF8 copy,
+schema/fixed-ID descriptions; each ArtifactID's growing canonical array, algorithm
+copy, hexadecimal copy, decoded bytes and endian words; and the factory-created
+extra digest hex copy64 plus decoded32. ArtifactID owns the derivation of its
+canonical representation cost. The injected backend-returned digest64 is excluded
+from canonical temporary cost. Hashing uses the unchanged SHA256 source. Core's
+result only shares caller provenance/artifact backing; the caller retains those
+original reservations and owns its result envelope metadata.
+
+For Evidence creation the caller reserves canonical.temporary + SHA.temporary +
+SHA.retained64 as operation scratch, and canonical.retained is zero. For standalone
+`digest(data:)`, reserve FoundationCopyN + SHA.temporary during the call and retain
+SHA.retained64 for the returned digest lifetime. A custom backend owns its separate
+allocation/failure contract; these bounds do not certify arbitrary conformers.
+
+Focused tests compare estimated canonical counts with bytes passed by the original
+factory, original identity/hash parity, optional fields, large Unicode strings,
+long algorithm/digest ArtifactIDs, checked scalar overflow, planning cancellation
+before input traversal and exact caller error preservation. No new shared mutable
+state or target-conditional synchronization is introduced.

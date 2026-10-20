@@ -6,6 +6,11 @@ package final class ContentDigestSessionState {
     case aborted
   }
 
+  /// Logical owner fields only; runtime object headers are outside managed payload.
+  package static var managedPayloadByteCount: Int {
+    MemoryLayout<(any ContentDigestSessionBackend, ContentDigestSessionLimits, Lifecycle, UInt64, UInt64)>.stride
+  }
+
   private let backend: any ContentDigestSessionBackend
   private let limits: ContentDigestSessionLimits
   private var lifecycle = Lifecycle.active

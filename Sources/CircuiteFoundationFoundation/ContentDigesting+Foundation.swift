@@ -2,6 +2,15 @@ import CircuiteFoundation
 import Foundation
 
 public extension ContentDigesting {
+  /// Costs only this adapter's UInt8 copy; backend scratch/result are separate.
+  func foundationDataCopyCost(byteCount: UInt64) throws(ContentDigestError)
+    -> (temporaryByteCount: UInt64, workUnits: UInt64) {
+    guard byteCount <= UInt64(Int.max) else { throw .byteCountOverflow }
+    let (temporary, overflow) = byteCount.addingReportingOverflow(UInt64(MemoryLayout<[UInt8]>.stride))
+    guard !overflow else { throw .byteCountOverflow }
+    return (temporary, byteCount)
+  }
+
   func digest(
     data: Data,
     using algorithm: ContentDigestAlgorithm = .sha256
