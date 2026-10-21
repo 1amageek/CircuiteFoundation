@@ -463,6 +463,110 @@ success, invalid-input, unavailable-resource, and incompatible-schema behavior.
 
 ## Managed Evidence and Digest Construction Costs
 
+### Controlled ContentDigest Construction and Codable Context (T3)
+
+This section owns the implemented additive digest-construction control contract.
+Native host Codable and the Core control on Native, normal WASM and Embedded WASM
+are qualified on fixed Swift 6.4.0. The existing initializer,
+Codable field names, lowercase canonical value and typed invalid-input causes stay
+unchanged. This is digest construction, not a new hash, decoder, budget or policy.
+Timing's bounded saved-result decode and PDK's audited typed-decoder composition
+need the same ContentDigest invariant without unadmitted custom construction.
+
+```text
+caller accountant + retained document/failure owner
+    -> PDK explicit additional userInfo (no source authority)
+        -> EXISTING nested ContentDigest Codable
+            -> CF controlled normalization and validation
+                -> caller work / scoped scratch / retained normalized backing
+```
+
+The additive Standard-Library-only Core surface is:
+
+```swift
+public protocol ContentDigestConstructionControl: Sendable {
+  func check() throws
+  func charge(workUnits: UInt64) throws
+  func reserveTemporary(byteCount: UInt64) throws -> any Sendable
+  func reserveRetained(byteCount: UInt64) throws
+}
+// Additive overload; the existing typed-throwing initializer remains available.
+ContentDigest.init(algorithm: ContentDigestAlgorithm, hexadecimalValue: String,
+                   control: any ContentDigestConstructionControl) throws
+```
+
+Every operation is a protocol requirement. The trusted caller adapts its EXISTING
+accountant; CF creates no counters, limits, cancellation token or second ledger.
+Temporary reservation handles stay alive across the corresponding operation.
+`reserveRetained` must retain the admitted backing reservation independently until
+the last caller-owned bounded document OR anchored failure releases its control.
+ContentDigest itself remains a freely copyable value without a hidden lease.
+Detaching a value from that owner transfers its storage responsibility to the
+caller. A control's receipt bookkeeping is separately preadmitted by its owner.
+
+CF owns the original Unicode lowercase and hexadecimal validation semantics. On
+the fixed Swift 6.4 implementation, admit one scalar-mapping scratch of UInt8.max
+bytes plus its String value BEFORE asking for a mapping. Charge/check the planning
+walk, sum the actual lowercase mapping UTF-8 lengths with checked arithmetic, and
+admit the simultaneous input-sized and mapped String buffers before conversion.
+The normalized backing is retained; the other conversion and mapping scratch is
+temporary. Charge the subsequent lowercase and actual validation visits before
+performing them, with cancellation checks at bounded walk boundaries. No generic
+JSON-size multiplier, ASCII-only restriction, early 64-character rejection, or
+SHA managedCost substitution is permitted. The mapped result count must match the
+planned count. Existing PEXParserTextSizing's qualified Swift 6.4 scalar/table
+source proof is the lower representation premise, not a PEX dependency.
+
+The implementation charges one planning visit before each scalar mapping and
+before each mapped validation-prefix byte. It records the first non-hex byte;
+the subsequent original initializer's scheduled work is its lowercase scalar
+visits plus the exact allSatisfy prefix visits (including the rejecting byte).
+Remaining invalid suffix bytes are not charged as original validation visits.
+Every charge/reservation callback is followed by check before further growth.
+Each opaque temporary handle is stored in a private immutable concrete
+ContentDigest.ConstructionLease value. The same value representation is used on
+Native, normal WASM and Embedded; withExtendedLifetime specializes on this known
+wrapper rather than an existential, while its Sendable owner field retains the
+original capacity handle through normal and throwing exits. This adds no class,
+heap allocation, ledger or platform branch. The legacy initializer file remains byte-identical; controlled construction
+delegates the actual conversion and semantic validation to that initializer.
+
+The optional host Serialization adapter adds
+`ContentDigestDecodingContext.controlKey: CodingUserInfoKey`. Its existing
+ContentDigest Decodable reads the same fields, then uses the controlled overload
+when that key holds `any ContentDigestConstructionControl`. Absence preserves the
+legacy branch; a present wrong type throws
+`ContentDigestDecodingError.invalidControlContext`. Encoder output is unchanged.
+The control cannot supply a replacement digest or override validation. The
+untyped throws on the new overload preserves original caller errors; original
+ContentDigestError cases and their source String payloads remain intact.
+
+Failure transfers preexisting source/control owners only: it never reserves,
+checks cancellation or formats a replacement diagnostic after the primary error.
+Invalid hexadecimal and incomplete-byte errors retain their ORIGINAL input
+String through the caller's existing source owner. Long uppercase input still
+executes the original normalization/validation order before the original length
+error, subject to the caller's earlier explicit resource refusal.
+
+`ControlledContentDigestTests` verifies actual legacy/controlled Codable parity,
+uppercase and Unicode invalid-input causes, many nested digest retention,
+temporary/retained/work refusal, callback cancellation and last-copy release.
+Its six declarations execute nine cases without skips on the qualified native
+host. The existing own-package portability probe exercises actual control
+requirements, original typed errors and copy/final-release behavior on Native,
+normal WASM and Embedded WASM. The WASI runtimes are single-threaded; those probes
+do not prove real parallel synchronization. Host Codable is not part of Embedded
+evidence. PDK remains responsible for explicit context forwarding, and Timing for
+saved-result shape and checked replay; this CF evidence does not qualify those
+dependent integrations. The Core surface adds no platform-specific mutable state: Native,
+WASM and Embedded use the same caller control requirements, while Codable remains
+the existing optional host serialization capability.
+
+| State owner | Native / normal WASM / Embedded storage | Access | Final release |
+|---|---|---|---|
+| CF construction | Immutable value and concrete lease wrapper on all targets | Same control requirements; no mutable CF ledger | Same scoped wrapper destruction |
+| Probe policy | Same Mutex<State> ledger and Mutex<UInt64> retained counter on all targets | Inline withLock check/charge/reserve/snapshot paths | Same shared-owner deinit refund |
+
 This additive owner seam exposes scalar costs for the existing canonicalization,
 SHA-256 and optional Foundation Data adapter. Existing factory/session APIs,
 encoding order, digest bytes and failure behavior remain unchanged. It adds no

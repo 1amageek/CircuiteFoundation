@@ -8,6 +8,17 @@ extension ContentDigest: Codable {
 
   public init(from decoder: any Decoder) throws {
     let container = try decoder.container(keyedBy: CodingKeys.self)
+    if let context = decoder.userInfo[ContentDigestDecodingContext.controlKey] {
+      guard let control = context as? any ContentDigestConstructionControl else {
+        throw ContentDigestDecodingError.invalidControlContext
+      }
+      try self.init(
+        algorithm: container.decode(ContentDigestAlgorithm.self, forKey: .algorithm),
+        hexadecimalValue: container.decode(String.self, forKey: .hexadecimalValue),
+        control: control
+      )
+      return
+    }
     try self.init(
       algorithm: container.decode(ContentDigestAlgorithm.self, forKey: .algorithm),
       hexadecimalValue: container.decode(String.self, forKey: .hexadecimalValue)
